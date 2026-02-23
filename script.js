@@ -760,6 +760,9 @@ let nm_NORM_DATA = {
     "10.3.d": {"standards": ["ISO 45001:2018", "ISO 22000:2018"]},
     "10.3.e": {"standards": ["ISO 45001:2018"]}
 };
+let new_NORM_DATA = {};
+let coveredSet = new Set();
+let coveredStd = {};
 
 /**
  * Enriches nm_NORM_DATA with parent, children, ancestors, and descendants.
@@ -781,7 +784,7 @@ function enrichNormData() {
             parts.pop();
             const potentialParent = parts.join('.');
             
-            // Only assign if the parent exists in our data (skips 4, 5, etc.)
+            // Only assign if the parent exists in our data
             if (nm_NORM_DATA[potentialParent]) {
                 nm_NORM_DATA[key].parent = potentialParent;
                 // Add this key to the parent's children list
@@ -807,11 +810,57 @@ function enrichNormData() {
     // 3. Third Pass: Descendants (Top-Down)
     // We use a helper to get all children of children
     keys.forEach(key => {
-        nm_NORM_DATA[key].descendants = getDeepChildren(key);
+        let desc = nm_NORM_DATA[key].children;
+        while (desc && desc.length > 0) {
+            const nextDesc = [];
+            desc.forEach(child => {
+                nm_NORM_DATA[key].descendants.push(child);
+                nextDesc.push(...(nm_NORM_DATA[child]?.children || []));
+            });
+            desc = nextDesc;
+        }
+       
     });
+
+    new_NORM_DATA = buildNewNormData(nm_NORM_DATA);
 
     console.log("🚀 nm_NORM_DATA enriched successfully.");
 }
+
+function buildNewNormData(nm_NORM_DATA) {
+  const new_NORM_DATA = {};
+
+  // Collect all standards present across nodes (if you already have AVAILABLE_STANDARDS, use that)
+  const allStandards = new Set();
+  Object.values(nm_NORM_DATA).forEach(node => {
+    (node.standards || []).forEach(s => allStandards.add(s));
+  });
+
+  // Initialize structure for each standard
+  allStandards.forEach(std => {
+    new_NORM_DATA[std] = {};
+  });
+
+  // For each node, add it under every standard it belongs to
+  Object.entries(nm_NORM_DATA).forEach(([nodeId, node]) => {
+    const nodeEntry = {
+      ancestors: Array.isArray(node.ancestors) ? [...node.ancestors] : [],
+      children: Array.isArray(node.children) ? [...node.children] : [],
+      descendants: Array.isArray(node.descendants) ? [...node.descendants] : []
+    };
+    // include parent only if not null/undefined
+    if (node.parent !== undefined && node.parent !== null) {
+      nodeEntry.parent = node.parent;
+    }
+
+    (node.standards || []).forEach(std => {
+      new_NORM_DATA[std][nodeId] = nodeEntry;
+    });
+  });
+
+  return new_NORM_DATA;
+}
+
 
 /** Helper for deep descendants */
 function getDeepChildren(key) {
@@ -1517,7 +1566,7 @@ function updateSlimBar() {
     }
     
     container.style.display = 'flex';
-    
+    coveredSet = new Set();
     appState.Standards.forEach(std => {
         const { total, covered } = calculateStandardCoverage(std);
         
@@ -1540,30 +1589,32 @@ function updateSlimBar() {
 
 function calculateStandardCoverage(std) {
     // 1. Obtener todas las cláusulas "hoja" (sin hijos) para esta norma
-    const leafClauses = Object.keys(nm_NORM_DATA).filter(key => {
-        if (!nm_NORM_DATA[key].standards.includes(std)) return false;
-        const children = nm_NORM_DATA[key]?.descendants || [];
-        const stdChildren = children.filter(c => nm_NORM_DATA[c].standards.includes(std));
-        return stdChildren.length === 0; // Es una hoja si no tiene hijos en esta norma
-    });
-    
+    // let leafClauses = Object.keys(nm_NORM_DATA).filter(key => {
+    //     if (!nm_NORM_DATA[key].standards.includes(std)) return false;
+    //     const children = nm_NORM_DATA[key]?.descendants || [];
+    //     const stdChildren = children.filter(c => nm_NORM_DATA[c].standards.includes(std));
+    //     return stdChildren.length === 0; // Es una hoja si no tiene hijos en esta norma
+    // });
+    leafClauses = new_NORM_DATA[std] ? Object.keys(new_NORM_DATA[std]).filter(key => new_NORM_DATA[std][key].parent) : [];
     const totalLeaves = leafClauses.length;
     if (totalLeaves === 0) return { total: 0, covered: 0 };
 
     // 2. Recolectar cláusulas cubiertas (Procesos + N/A) [cite: 42]
-    const coveredSet = new Set();
-    
+    coveredSet = new Set();
     appState.processes.forEach(proc => {
         proc.assignedRequirements.forEach(reqKey => {
+            
             const [reqStd, clause] = reqKey.split('|');
-            if (reqStd === std) coveredSet.add(clause);
+            if (reqStd === std) {
+                coveredSet.add(clause)
+            };
         });
     });
-    
     (appState.nonApplicableClauses || []).forEach(reqKey => {
         const [reqStd, clause] = reqKey.split('|');
         if (reqStd === std) coveredSet.add(clause);
     });
+    coveredStd[std]=coveredSet;
 
     // 3. Contar hojas cubiertas
     let coveredCount = 0;
@@ -1591,53 +1642,58 @@ function renderMissingRequirements() {
 
     appState.Standards.forEach(std => {
         // 1. Obtener todas las cláusulas base de esta norma
-        const allStdClauses = Object.keys(nm_NORM_DATA).filter(key => nm_NORM_DATA[key].standards.includes(std));
+        const allStdChapters = Object.keys(nm_NORM_DATA).filter(key => nm_NORM_DATA[key].standards.includes(std) && !nm_NORM_DATA[key].parent);
+        let allStdClauses = [];
+        allStdChapters.forEach(clause => {
+            allStdClauses.push(...nm_NORM_DATA[clause].children.filter(c => nm_NORM_DATA[c].standards.includes(std)));
+        });
 
-        // 2. Extraer todo lo que ya está cubierto (Procesos + No Aplicables)
-        const coveredSet = new Set();
-        appState.processes.forEach(proc => {
-            proc.assignedRequirements.forEach(reqKey => {
-                const [reqStd, clause] = reqKey.split('|');
-                if (reqStd === std) coveredSet.add(clause);
-            });
-        });
-        (appState.nonApplicableClauses || []).forEach(reqKey => {
-            const [reqStd, clause] = reqKey.split('|');
-            if (reqStd === std) coveredSet.add(clause);
-        });
+        // // 2. Extraer todo lo que ya está cubierto (Procesos + No Aplicables)
+        // const coveredSet = new Set();
+        // appState.processes.forEach(proc => {
+        //     proc.assignedRequirements.forEach(reqKey => {
+        //         const [reqStd, clause] = reqKey.split('|');
+        //         if (reqStd === std) coveredSet.add(clause);
+        //     });
+        // });
+        // (appState.nonApplicableClauses || []).forEach(reqKey => {
+        //     const [reqStd, clause] = reqKey.split('|');
+        //     if (reqStd === std) coveredSet.add(clause);
+        // });
 
         // 3. Determinar las cláusulas faltantes
         const missingClauses = new Set();
         allStdClauses.forEach(clause => {
-            if (!coveredSet.has(clause)) {
+            if (!coveredStd[std].has(clause)) {
                 missingClauses.add(clause);
             }
         });
+        console.log(getCollapsedClauses(std, set=missingClauses));
 
-        if (missingClauses.size > 0) {
-            hasMissing = true;
+        // if (missingClauses.size > 0) {
+        //     hasMissing = true;
             
-            // 4. LÓGICA DE RESUMEN: Solo mostrar el "padre" faltante
-            const rolledUpMissing = [];
-            missingClauses.forEach(clause => {
-                const parent = nm_NORM_DATA[clause].parent;
-                // Si la cláusula no tiene padre, o su padre NO falta (está cubierto), la agregamos.
-                // Si el padre también falta, ignoramos este hijo para evitar saturación visual.
-                if (!parent || !missingClauses.has(parent)) {
-                    rolledUpMissing.push(clause);
-                }
-            });
+        //     // 4. LÓGICA DE RESUMEN: Solo mostrar el "padre" faltante
+        //     const rolledUpMissing = [];
+        //     missingClauses.forEach(clause => {
+        //         const parent = nm_NORM_DATA[clause].parent;
+        //         // Si la cláusula no tiene padre, o su padre NO falta (está cubierto), la agregamos.
+        //         // Si el padre también falta, ignoramos este hijo para evitar saturación visual.
+        //         if (!parent || !missingClauses.has(parent)) {
+        //             rolledUpMissing.push(clause);
+        //         }
+        //     });
 
-            // Ordenamos lógicamente (ej. 4.1 antes que 4.10)
-            rolledUpMissing.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        //     // Ordenamos lógicamente (ej. 4.1 antes que 4.10)
+        //     rolledUpMissing.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
-            html += `
-                <div class="missing-std-block">
-                    <span class="missing-std-title">${std}:</span>
-                    <span class="missing-std-clauses">${rolledUpMissing.join(', ')}</span>
-                </div>
-            `;
-        }
+        //     html += `
+        //         <div class="missing-std-block">
+        //             <span class="missing-std-title">${std}:</span>
+        //             <span class="missing-std-clauses">${rolledUpMissing.join(', ')}</span>
+        //         </div>
+        //     `;
+        // }
     });
 
     // 5. Renderizar o esconder el contenedor
@@ -1706,6 +1762,7 @@ function openAssignmentModal(procId) {
         const [std, clause] = req.split('|');
         if (!markedClauses[std]) markedClauses[std] = new Set();
         markedClauses[std].add(clause);
+        markClauseAndAscendants(clause, std)
     });
 
     COMPANY_NAME = appState.meta.organizationName || "Organización";
@@ -1726,6 +1783,7 @@ function openNaModal() {
         const [std, clause] = req.split('|');
         if (!markedClauses[std]) markedClauses[std] = new Set();
         markedClauses[std].add(clause);
+        markClauseAndAscendants(clause, std)
     });
 
     COMPANY_NAME = appState.meta.organizationName || "Organización";

@@ -151,10 +151,10 @@ function getExpandedContent(key, std, visited = new Set(), isRoot = true) {
  * Takes the raw selections for a standard and returns an optimized/collapsed array.
  * Thanks to the enriched data, this is now a highly efficient O(N) filter.
  */
-function getCollapsedClauses(std) {
-    if (!markedClauses[std] || markedClauses[std].size === 0) return [];
+function getCollapsedClauses(std, set=markedClauses[std]) {
+    if (!set || set.size === 0) return [];
     
-    const state = markedClauses[std];
+    const state = set;
     const collapsed = [];
 
     // Iterate through everything in our fully-populated set
@@ -331,7 +331,8 @@ function updateRow3() {
                     pillTitle: `Ver Cláusula`,
                     buttonTitle: `Remover Cláusula`,
                     onPillClick: () => jumpToClause(std, code),
-                    onButtonClick: () => unmarkClauseAndDescendants(code, std)
+                    onButtonClick: () => toggleMark(code, std)
+                    //onButtonClick: () => unmarkClauseAndDescendants(code, std)
                 });
                 
                 itemsContainer.appendChild(box);
@@ -405,7 +406,7 @@ function jumpToClause(std, code) {
  */
 function toggleMark(clauseCode, std) {
     if (!markedClauses[std]) markedClauses[std] = new Set();
-    
+
     if (isClauseMarked(clauseCode, std)) {
         unmarkClauseAndDescendants(clauseCode, std);
     } else {
@@ -452,6 +453,7 @@ function markClauseAndAscendants(clauseCode, std) {
 
     updateRow3();
     updateModalUI();
+    if (typeof autoSaveModalState === 'function') autoSaveModalState();
 }
 
 /**
@@ -461,12 +463,11 @@ function markClauseAndAscendants(clauseCode, std) {
 function unmarkClauseAndDescendants(clauseCode, std) {
     if (!markedClauses[std]) return;
     const state = markedClauses[std];
-
     // 1. Unmark the target clause
     state.delete(clauseCode);
-
+    
     // 2. Cascade DOWN: Unmark all descendants
-    const descendants = nm_NORM_DATA[clauseCode]?.descendants || [];
+    const descendants = nm_NORM_DATA[clauseCode].descendants || [];
     descendants.forEach(desc => {
         state.delete(desc);
     });
@@ -480,6 +481,7 @@ function unmarkClauseAndDescendants(clauseCode, std) {
 
     updateRow3();
     updateModalUI();
+    if (typeof autoSaveModalState === 'function') autoSaveModalState();
 }
 
 /**
