@@ -1,0 +1,90 @@
+based on the following text, i will like right now your help to build a document that is gonna be the based, the fundaments and the technical details of everything that i want for this modal and more if i missed something. So right now i dont want code, i want you to focus on understand this new modal and what it does, so in text you can give me two sections:
+
+1. all the technical details, focus on explain the requirements and any deep detailed information that could be necessary in a coding session of each of the following phases that are gonna sit in my second section of the document.
+
+2. An structure in Phase, where each phase could improve on what i got right now and be putting in place each of the construction blocks that gonna need for the next phase. I will tackle each phase in a deep down level of coding, putting real prommaging power in each phase to obtain the final code. The main focus on this structure in phases is that at the end of the whole process we obtain a final state of the project that is the most close to what we define, to what i want.
+
+
+"""
+Right now, i got a project of creating a form called Requirements per process, right now is really advanced.
+I went ahead and go into two guys to show them the current state of my project and THEY HATE the whole modal-requirements thing, and that is the complete brain and the most critical part of the project. And im really thinking about it, they are totally correct. its too complex, too many information at the same time in the view of the user, they cannot know what to do.
+So talking with them we tough a replacement, a new modal that will work to do the same, but more focus to users and more intuitive, almost as an apk for phone, where all its about single action, less information for the user, more is less.
+Right now i prefer to place everything in a new file, so a new .css and .js file only for this, so we dont touch the rest of the code. we just need to stop calling the previous modal and go ahead and call this new modal, so we can see it, test it and work on it.
+With this in mind i procced with my new design for this modal.
+
+
+
+
+Objetivo: seleccionar requisitos (cláusulas de norma) por cada proceso, de forma intuitiva, tratando de emular la típica construir de aplicaciones de teléfono, pero en una página web.
+
+the idea is replace the current modal-requirements with this new modal
+
+Modal del proceso:
+the modal will have three rows.
+The first row gonna hold the name of the process and we need to be able to click it and edit it at anymoment, also at the right the respective 'X' to close it.
+The second row gonna be the main section of this modal, i will detail it later.
+the third row gonna hold the all the mark requirements (clauses) in this process, but only show the most parent one (if both 4.2.a and 4.2 is selected, only show 4.2).
+
+now in the second row, the main section:
+this will take the most space (height), gonna be divided in two columns (im not sure, but lets say that i dont know if i want the width of those columns equal or not, i'll let you decide based on the rest of my explanation).
+Lets start by the right column, this will hold the whole content of the selected requirement (clause), must look ok with a font that is readable. This column contains titles (that are accompanied by their clause), body text, sub-titles (also with their clause), and in some cases clauses just before the body text and being bold.
+Now the complicated part and the most critical one is the left part.
+
+everything gonna be inside small boxes with radius corner, those are compact, they could be acompannied by an 'X' button or with something else, but always at the right of the text. (lets call those special boxes, sp box)
+Lets talk with an example:
+We have a company called 'Company Name', so that name appear at the top, centered inside an sp. box, this here is fixed.
+when everytime we select a new sp. box, those are gonna appear just under the previous sp. box.
+just at the moment we open this modal, the left part is empty with only the name of the company, occupying the rest of the space we have sp. boxes with each standard name that the user already selected previously. once the user select one standard (let's say ISO 9001:2015) a new sp. box appear with that standard inside and sits just under the company name sp. box.
+once we select an standard, then occupying the rest of the space we show all the chapters (for iso 9001, we are talking of chapters from 4 to 10), so we show sp. boxes for each of those chapters, maybe in a matrix of 2 columns and the rest in rows, maybe more columns, im not sure, what looks better.
+So lets say the user select the chapter 8, then appear a sp. box with that number inside just under the sp.box for the standard, and occupying the rest of the space, all the direct children of that 8 (in this case they are from 8.1 up to 8.7), for each one of them appear sp. box. if i select one of them, them appear just under the sp.box for 8... and we continue going each time a level lower calling the children of the previous clause.
+Each time im 'selecting' is because i click the whole box, but also at the right i got space for something else, in this case im thinking of 'X' and maybe something that signal the user to click to 'MARK' at that clause and by clicking that, that sp. box appear on the third row of the modal, that hold all the mark requirements. And with the 'X' we just remove the sp.box from the place they are.
+For example in the third row where all the mark requriements sits, i click the 'X' of one of them, then that gonna disappear from it. but if i click the whole sp.box then im calling that to be selected and be placed as the current view clause. So for example if i click in this third row a sp.box that is '4.1', then in the second row will be selected that 4.1, so i will see the first sp.box with the name of the company, next the sp. box with the respective standard, then the most grant parent of that selected clause (that means the chapter 4) up to the current 4.1 clause. and occupying the rest of the space in this second row, all the direct children of that 4.1 (in this case 4.1 dont have children, so that space its empty).
+
+now again in the second row, the main section. all the sp.box that are in the top part (except the one for the company name), contians a 'X', if i click it, them that sp. box (and all the ones below) are deleted from the view and procced to select the previous sp. box (its better to just directly make that we are selecting the previous one). Let me explain you that, if i got selected the '8.1' and we are seeing company name sp.box, iso 9001 sp.box and the clause '8' sp. box, and the current selected clause '8.1', if we click the 'X' on that clause '8', then both '8' and '8.1' must be deleted, gonna disappear from here, but its the same that say that we click the sp.box of 'ISO 9001:2015', because the result view is exactly the same one. This is just to avoid doing two things that are practically the same. but if really is necessary we could separate in their own way.
+
+at any moment, if we click the whole sp.box, that means we procced to select that clause and show it.
+
+For the right column that hold the text, we always gonna show the text of the current selected clause, close to what we are doing right now with the current modal-clause-details.
+Of course we can scroll down in the right corner if its requried to be able to read the whole content. 
+
+
+Thinking a little more, lets talk about the third row, lets say that they have 3 standards, ISO 9001:2015, ISO 14001:2015 and ISO 45001:2018, and they want to select the requirements for a process.
+This process contains the clause 4.1 in each of the 3 standards. By our current method each 4.1 mark is gonna appear in this third row but how we can difference each?.
+maybe we need to group them, like i dont know how but in that third row group them by the standard. So a little subtitle with the standard name and on it, each of the clause that were marked in that standard.
+
+
+I generated 2 images called 'Clause 8.png' and 'Clause 8.3.png' those are an schematic representation of what is the idea in my mind. this is not an exact image, its just a way to help understand what is it in my mind right now. Could be designed better? of course, probably.
+
+
+For any complication about how we handle the grouping of those clauses in the third row and how to make only appear the most grand parent clause on it. we can check the .js file shared that contains the code for the old modal, and i think that kind of collapse all clauses on the most grand parent clause is on it. So check very well that file for more information.
+
+"""
+
+
+Now the next text is an idea on how the technical details could be build. This is to give you some help on what to do, or how to do it. But feel free to change it as you wish:
+"""
+1. Technical Details & Requirements
+This section defines the "Rules of Engagement" for the coding sessions. It focuses on the logic required to make the "SP Box" navigation feel fluid and the data stay consistent.
+A. The Navigation Engine (The Stack)
+Instead of a tree view, we are implementing a Stack-Based Navigation.
+•	The Path State: The system must maintain an array representing the current drill-down path: [Company, Standard, Chapter, Sub-Clause].
+•	Rendering Logic: * Every item in the path (except the Company) is rendered as an SP Box with an "X".
+o	The "Active" box is always the last one in the array.
+o	The "Options Area" (the grid below the stack) always displays the immediate children of the Active box.
+•	The "X" Logic: Clicking "X" on a path element doesn't just remove that element; it "pops" the stack back to that level's parent.
+B. The "Marking" vs. "Selecting" Logic
+There is a critical distinction here to avoid user confusion:
+•	Selecting (Navigation): Clicking the body of an SP Box in the Options Area moves you deeper into the hierarchy and updates the Right Column text.
+•	Marking (Action): Clicking the specific "Mark" icon on an SP Box adds that clause to the Third Row (The Selection Bucket).
+•	The Ancestor Filter: This is the "Brain" of the display. When rendering the Third Row or the Process Card, the system must run a filter: If Clause A and Clause B are selected, and A is a parent of B, only display A. ### C. Right Column (The Content Viewer)
+•	Dynamic Loading: The content must update instantly when the "Active" SP Box changes.
+•	Formatting Engine: Since your data contains nested HTML and bolded clauses, the CSS must handle .clause-text-flow specifically for this new modal to ensure readability without inheriting old, messy styles.
+D. Data Grouping (Row 3)
+•	To solve the "Three 4.1s" problem, the Third Row must be an object-based render:
+JavaScript
+{ 
+  "ISO 9001": ["4.1", "8.2"],
+  "ISO 14001": ["4.1"] 
+}
+•	Visually, this uses small "Standard Tags" as headers within the third row.
+"""
