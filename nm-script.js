@@ -517,9 +517,11 @@ function createPill({
     }
 
     // Build inner HTML
+    let contentHTML = '';
     let innerHTML = '';
-    if (code) innerHTML += `<span class="nm-pill-code">${code}</span>`;
-    if (label) innerHTML += `<span class="nm-pill-label">${label}</span>`;
+    if (code) contentHTML += `<span class="nm-pill-code">${code}</span>`;
+    if (label) contentHTML += `<span class="nm-pill-label">${label}</span>`;
+    innerHTML = `<div class="nm-pill-content" title="${pillTitle}">${contentHTML}</div>`;
 
     if (buttonState !== 'none') {
         const isRemove = buttonState === 'remove';
