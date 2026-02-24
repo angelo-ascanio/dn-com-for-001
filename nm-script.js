@@ -489,6 +489,9 @@ function unmarkClauseAndDescendants(clauseCode, std) {
 /**
  * Factory function to generate a unified Pill component.
  */
+/**
+ * Factory function to generate a unified Pill component with split-hover zones.
+ */
 function createPill({ 
     code = '', 
     label = '', 
@@ -501,44 +504,58 @@ function createPill({
     onPillClick = null, 
     onButtonClick = null 
 }) {
+    // 1. Create Wrapper
     const pill = document.createElement('div');
     pill.className = 'nm-pill';
     
-    // Apply state modifiers
+    // Apply state modifiers to wrapper
     if (isRoot) pill.classList.add('nm-pill--root');
     if (isActive) pill.classList.add('nm-pill--active');
     if (isBucket) pill.classList.add('nm-pill--bucket');
-    //if (pillTitle) pill.title = pillTitle;
 
-    // Attach pill click
-    if (onPillClick) {
-        if (pillTitle) pill.title = pillTitle;
-        pill.onclick = onPillClick;
-    }
+    // 2. Build the Left Side (.nm-pill-content)
+    const pillContent = document.createElement('div');
+    pillContent.className = 'nm-pill-content';
+    if (buttonState === 'none') pillContent.classList.add('nm-pill-content--full');
+    if (pillTitle) {
+        if (isActive) {
+            pillContent.title = "Visualización actual";
+        } else {
+            pillContent.title = pillTitle
+        }
+    };
 
-    // Build inner HTML
     let contentHTML = '';
-    let innerHTML = '';
     if (code) contentHTML += `<span class="nm-pill-code">${code}</span>`;
     if (label) contentHTML += `<span class="nm-pill-label">${label}</span>`;
-    innerHTML = `<div class="nm-pill-content" title="${pillTitle}">${contentHTML}</div>`;
+    pillContent.innerHTML = contentHTML;
 
+    // Attach pill click directly to the left side
+    if (onPillClick) {
+        pillContent.onclick = onPillClick;
+    }
+    
+    pill.appendChild(pillContent);
+
+    // 3. Build the Right Side (.nm-pill-btn)
     if (buttonState !== 'none') {
         const isRemove = buttonState === 'remove';
         const btnClass = isRemove ? 'nm-pill-btn nm-pill-btn--remove' : 'nm-pill-btn';
         const btnIcon = isRemove ? '&times;' : '+';
-        innerHTML += `<button class="${btnClass}" title="${buttonTitle}">${btnIcon}</button>`;
-    }
+        
+        const btn = document.createElement('button');
+        btn.className = btnClass;
+        btn.title = buttonTitle;
+        btn.innerHTML = btnIcon;
 
-    pill.innerHTML = innerHTML;
-
-    // Attach button click (preventing event bubbling so it doesn't trigger the pill click)
-    if (buttonState !== 'none' && onButtonClick) {
-        const btn = pill.querySelector('.nm-pill-btn');
-        btn.onclick = (e) => {
-            e.stopPropagation();
-            onButtonClick(e);
-        };
+        // Attach button click
+        if (onButtonClick) {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                onButtonClick(e);
+            };
+        }
+        pill.appendChild(btn);
     }
 
     return pill;
