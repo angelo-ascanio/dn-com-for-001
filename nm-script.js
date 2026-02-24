@@ -51,7 +51,7 @@ async function loadModalData() {
 function getRealChildren(activeItem) {
     const children = [];
 
-    // 1. Root Level: Read dynamically from the appState.Standards!
+    // 1. Root Level
     if (activeItem.code === 'Company Name') {
         const stdNames = {
             'ISO 9001:2015': 'Sistema de Gestión de la Calidad',
@@ -62,36 +62,33 @@ function getRealChildren(activeItem) {
             'ISO 27001:2022': 'Sistema de Gestión de Seguridad de la Información'
         };
         
-        // Loop through the globally available appState from script.js
         Array.from(appState.Standards).forEach(std => {
             children.push({ code: std, label: stdNames[std] || 'Sistema de Gestión' });
         });
         return children;
     }
 
-    // 2. Identify the active standard. It is ALWAYS the first item in the path (index 0).
     const currentStandard = currentPath[0].code; 
+    const stdData = nm_NORM_DATA[currentStandard] || {};
 
-    // 3. Level 1 Clauses (e.g., "4", "5") if the active item IS the Standard
+    // 2. Level 1 Clauses (e.g., "4", "5")
     if (activeItem.code === currentStandard) {
-        for (let key in nm_NORM_DATA) {
-            if (!key.includes('.') && nm_NORM_DATA[key].standards.includes(currentStandard)) {
+        for (let key in stdData) {
+            if (!key.includes('.')) {
                 let title = nm_CLAUSES_DATA[currentStandard]?.[key]?.title || ``;
                 children.push({ code: key, label: title });
             }
         }
     } 
-    // 4. Deeper Clauses (e.g., activeItem "4" -> children "4.1")
+    // 3. Deeper Clauses (e.g., activeItem "4" -> children "4.1")
     else {
         const parentCode = activeItem.code;
         const targetLevel = parentCode.split('.').length + 1;
 
-        for (let key in nm_NORM_DATA) {
+        for (let key in stdData) {
             if (key.startsWith(parentCode + '.') && key.split('.').length === targetLevel) {
-                if (nm_NORM_DATA[key].standards.includes(currentStandard)) {
-                    let title = nm_CLAUSES_DATA[currentStandard]?.[key]?.title || ``;
-                    children.push({ code: key, label: title });
-                }
+                let title = nm_CLAUSES_DATA[currentStandard]?.[key]?.title || ``;
+                children.push({ code: key, label: title });
             }
         }
     }
@@ -149,20 +146,17 @@ function getExpandedContent(key, std, visited = new Set(), isRoot = true) {
 
 /**
  * Takes the raw selections for a standard and returns an optimized/collapsed array.
- * Thanks to the enriched data, this is now a highly efficient O(N) filter.
  */
-function getCollapsedClauses(std, set=markedClauses[std]) {
+function getCollapsedClauses(std, set = markedClauses[std]) {
     if (!set || set.size === 0) return [];
     
     const state = set;
     const collapsed = [];
+    const stdData = nm_NORM_DATA[std] || {};
 
-    // Iterate through everything in our fully-populated set
     state.forEach(code => {
-        const parent = nm_NORM_DATA[code]?.parent;
+        const parent = stdData[code]?.parent;
         
-        // A clause is a "collapsed root" if it has no parent, 
-        // OR its parent is NOT currently marked.
         if (!parent || !state.has(parent)) {
             collapsed.push(code);
         }
@@ -176,7 +170,7 @@ function getCollapsedClauses(std, set=markedClauses[std]) {
  * Crucial for cases where a child (e.g., 4.2.c) belongs to 14001 but not 9001.
  */
 function isValidForStd(code, std) {
-    return nm_NORM_DATA[code] && nm_NORM_DATA[code].standards.includes(std);
+    return nm_NORM_DATA[std] && nm_NORM_DATA[std][code] !== undefined;
 }
 
 /**
@@ -246,12 +240,17 @@ function renderOptionsArea(activeItem) {
     optionsAreaContainer.innerHTML = ''; 
 
     const currentStandard = currentPath.length > 0 ? currentPath[0].code : null;
+    const lastindex = currentPath.length>1 ? currentPath.length - 1 : 0;
     const realChildren = getRealChildren(activeItem);
+    // if (currentPath[lastindex].code) {
+        
+    // }
 
+    
     if (realChildren.length === 0) {
         optionsAreaContainer.innerHTML = '<div class="nm-no-options">No hay sub-cláusulas.</div>';
         return;
-    }
+    };
 
     realChildren.forEach(child => {
         const isMarked = isClauseMarked(child.code, currentStandard);
@@ -376,9 +375,10 @@ function jumpToClause(std, code) {
     newPath.push({ code: std, label: std });
 
     // 2. Trace and add ancestors from top to bottom
-    if (nm_NORM_DATA[code] && nm_NORM_DATA[code].ancestors) {
+    const stdData = nm_NORM_DATA[std] || {};
+    if (stdData[code] && stdData[code].ancestors) {
         // Our ancestors array is bottom-up (parent, grandparent), so we reverse it
-        const ancestors = [...nm_NORM_DATA[code].ancestors].reverse();
+        const ancestors = [...stdData[code].ancestors].reverse();
         
         ancestors.forEach(anc => {
             let title = nm_CLAUSES_DATA[std]?.[anc]?.title || `Cláusula ${anc}`;
@@ -420,6 +420,7 @@ function toggleMark(clauseCode, std) {
  * and cascades up to automatically mark parents if all children are checked.
  */
 function markClauseAndAscendants(clauseCode, std) {
+    const stdData = nm_NORM_DATA[std] || {};
     if (!markedClauses[std]) markedClauses[std] = new Set();
     const state = markedClauses[std];
 
@@ -427,7 +428,7 @@ function markClauseAndAscendants(clauseCode, std) {
     state.add(clauseCode);
 
     // 2. Cascade DOWN: Mark all valid descendants
-    const descendants = nm_NORM_DATA[clauseCode]?.descendants || [];
+    const descendants = stdData[clauseCode]?.descendants || [];
     descendants.forEach(desc => {
         if (isValidForStd(desc, std)) {
             state.add(desc);
@@ -435,10 +436,10 @@ function markClauseAndAscendants(clauseCode, std) {
     });
 
     // 3. Cascade UP: Check ancestors to see if they should now be collapsed (auto-marked)
-    const ancestors = nm_NORM_DATA[clauseCode]?.ancestors || [];
+    const ancestors = stdData[clauseCode]?.ancestors || [];
     ancestors.forEach(anc => {
         if (isValidForStd(anc, std)) {
-            const children = nm_NORM_DATA[anc].children || [];
+            const children = stdData[anc].children || [];
             
             // Check if ALL valid children for this specific standard are marked
             const allChildrenMarked = children
@@ -461,20 +462,21 @@ function markClauseAndAscendants(clauseCode, std) {
  * and cascades up to unmark ancestors (breaking the collapse).
  */
 function unmarkClauseAndDescendants(clauseCode, std) {
+    const stdData = nm_NORM_DATA[std] || {};
     if (!markedClauses[std]) return;
     const state = markedClauses[std];
     // 1. Unmark the target clause
     state.delete(clauseCode);
     
     // 2. Cascade DOWN: Unmark all descendants
-    const descendants = nm_NORM_DATA[clauseCode].descendants || [];
+    const descendants = stdData[clauseCode]?.descendants || [];
     descendants.forEach(desc => {
         state.delete(desc);
     });
 
     // 3. Cascade UP: Unmark all ancestors
     // If a descendant is missing, the ancestor can no longer be fully marked/collapsed.
-    const ancestors = nm_NORM_DATA[clauseCode]?.ancestors || [];
+    const ancestors = stdData[clauseCode]?.ancestors || [];
     ancestors.forEach(anc => {
         state.delete(anc);
     });
