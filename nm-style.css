@@ -103,6 +103,16 @@
     overflow-y: auto;
 }
 
+.nm-reading-pane, .nm-reading-pane * {
+    -webkit-user-select: none !important; /* Safari/Chrome */
+    -moz-user-select: none !important;    /* Firefox */
+    -ms-user-select: none !important;     /* IE11 */
+    user-select: none !important;         /* Standard */
+    
+    /* Disables the blue highlight and the "I-beam" cursor */
+    cursor: default !important;
+}
+
 .nm-right-col .debe {
     font-style: italic;
 }
@@ -317,6 +327,7 @@
     align-items: center;
     font-weight: bold;
     padding: 0 10px;
+    min-width: 30px;
 }
 
 .nm-pill-label {

@@ -578,3 +578,9 @@ document.addEventListener('DOMContentLoaded', () => {
     loadModalData();
     updateModalUI();
 });
+
+// Add this inside your initialization or DOMContentLoaded block
+const readingPan = document.querySelector('.nm-reading-pane');
+readingPan.addEventListener('contextmenu', (e) => {e.preventDefault();});
+readingPan.addEventListener('copy', (e) => {e.preventDefault();});
+readingPan.addEventListener('dragstart', (e) => {e.preventDefault();}, false);
