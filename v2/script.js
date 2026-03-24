@@ -4,6 +4,7 @@
  * =================================================================================
  */
 
+const PDF_MAX_PROCESSES = 30;
 const SECTIONS = ['sec-load', 'sec-initial', 'sec-processes', 'sec-export'];
 
 /* * 1. BASE DE DATOS NORMATIVA (INMUTABLE)
@@ -647,30 +648,23 @@ function navigateFlow(targetId) {
 
 // 1. Mostrar Formulario (Crear o Editar)
 function showProcessForm(id = null) {
-    const formPanel = document.getElementById('process-form-container');
-    const input = document.getElementById('process-name-input');
-    const title = document.getElementById('form-title');
-    const btnNew = document.getElementById('btn-new-process');
+    const formPanel = document.getElementById("process-form-container");
+    const input = document.getElementById("process-name-input");
+    const title = document.getElementById("form-title");
 
-    formPanel.classList.remove('hidden');
-    btnNew.classList.add('hidden'); // Ocultamos el botón de "+ Nuevo" para limpiar la vista
-    
+    formPanel.classList.remove("hidden");
+    document.getElementById("btn-new-process").classList.add("hidden");
+
     if (id) {
-        // MODO EDICIÓN
-        const process = appState.processes.find(p => p.id === id);
-        if (process) {
-            input.value = process.name;
-            editingProcessId = id;
-            title.innerText = "Editar Proceso";
-        }
+        const proc = appState.processes.find(p => p.id === id);
+        editingProcessId = id;
+        input.value = proc.name;
+        title.textContent = "Editar Proceso";
     } else {
-        // MODO CREACIÓN
-        input.value = '';
         editingProcessId = null;
-        title.innerText = "Registrar Nuevo Proceso";
+        input.value = "";
+        title.textContent = "Registrar Nuevo Proceso";
     }
-    
-    input.focus();
 }
 
 // 2. Ocultar Formulario
@@ -684,6 +678,11 @@ function hideProcessForm() {
 function saveProcess() {
     const nameInput = document.getElementById('process-name-input');
     const name = nameInput.value.trim();
+
+    if (!editingProcessId && appState.processes.length >= PDF_MAX_PROCESSES) {
+        alert("No puedes añadir más procesos. El PDF solo admite 30.");
+        return;
+    }
 
     if (!name) {
         alert("El nombre del proceso no puede estar vacío.");
@@ -722,47 +721,62 @@ function deleteProcessUI(id) {
 
 // 5. Renderizado de Tarjetas
 function renderProcesses() {
-    const container = document.getElementById('process-list');
-    container.innerHTML = '';
+    const grid = document.getElementById("process-grid");
+    grid.innerHTML = "";
 
-    if (appState.processes.length === 0) {
-        container.innerHTML = `
-            <div style="text-align:center; padding: 40px; color:#999; border: 2px dashed #eee; border-radius: 8px;">
-                <p>No hay procesos registrados.</p>
-                <p style="font-size:0.9rem">Haz clic en "Nuevo Proceso" para comenzar.</p>
-            </div>`;
+    const processCount = appState.processes.length;
+
+    // Capacity Warning
+    const warning = document.getElementById("process-capacity-warning");
+    warning.classList.toggle("hidden", processCount < PDF_MAX_PROCESSES);
+
+    // Hide Add Button when full
+    document.getElementById("btn-add-process").disabled =
+        processCount >= PDF_MAX_PROCESSES;
+
+    if (processCount === 0) {
+        grid.innerHTML = `
+            <p style="color: #777; text-align:center; padding: 20px;">
+                No hay procesos aún. Haz clic en <b>“Añadir Proceso”</b>.
+            </p>
+        `;
         return;
     }
 
-    appState.processes.forEach(proc => {
-        const reqCount = proc.assignedRequirements.length;
-        const hasReqs = reqCount > 0;
-        
-        const card = document.createElement('div');
-        card.className = `process-card ${hasReqs ? 'has-requirements' : ''}`;
-        card.style.borderLeft = hasReqs ? '5px solid #28a745' : '5px solid #ccc';
-        
+    // Render Each Process Card
+    appState.processes.forEach((proc) => {
+        const assigned = proc.assignedRequirements.length;
+        const statusClass =
+            assigned === 0 ? "empty" :
+            assigned > 0 ? "pending" :
+            "complete";
+
+        const card = document.createElement("div");
+        card.className = "process-card-v2";
+
         card.innerHTML = `
-            <div style="flex:1">
-                <h3 style="margin:0 0 5px 0; font-size: 1.1rem;">${proc.name}</h3>
-                <small style="color:${hasReqs ? '#28a745' : '#666'}">
-                    ${hasReqs ? `✅ ${reqCount} Requisitos asignados` : '⚠️ Sin requisitos definidos'}
-                </small>
+            <div class="process-title-row">
+                <div class="process-name">${proc.name}</div>
+                <div class="process-actions">
+                    <span class="process-btn-icon" onclick="openAssignmentModal(${proc.id})">📝</span>
+                    <span class="process-btn-icon" onclick="showProcessForm(${proc.id})">✏️</span>
+                    <span class="process-btn-icon" onclick="deleteProcessUI(${proc.id})">🗑️</span>
+                </div>
             </div>
-            <div style="display:flex; align-items: center;">
-                <button class="btn-edit" onclick="showProcessForm(${proc.id})">✎ Editar</button>
-                
-                <button class="btn-primary" style="padding:5px 10px; font-size:0.9rem; margin-right:5px;" onclick="openAssignmentModal(${proc.id})">
-                    Requisitos
-                </button>
-                
-                <button class="btn-delete" onclick="deleteProcessUI(${proc.id})">🗑️</button>
+
+            <div class="process-status ${statusClass}">
+                <span class="status-label">
+                    ${
+                        assigned === 0
+                        ? "Sin requisitos asignados"
+                        : assigned + " requisitos asignados"
+                    }
+                </span>
             </div>
         `;
-        container.appendChild(card);
-    });
 
-    updateSlimBar();
+        grid.appendChild(card);
+    });
 }
 
 /**

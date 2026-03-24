@@ -90,11 +90,16 @@
             </div>
             
             <div class="content-compact">
-                <div class="process-toolbar">
-                    <button onclick="showProcessForm()" class="btn-primary small" id="btn-new-process">
-                        + Nuevo Proceso
+                <div id="process-section-wrapper">
+                    <div id="process-grid" class="process-grid"></div>
+
+                    <button id="btn-add-process" class="ux-btn primary" onclick="showProcessForm()">
+                        + Añadir Proceso
                     </button>
-                    <span style="font-size: 0.85rem; color: #666; margin-left: auto;">Gestión de Requisitos por Procesos</span>
+
+                    <div id="process-capacity-warning" class="process-warning hidden">
+                        Has alcanzado el número máximo de procesos compatibles con el PDF (30).
+                    </div>
                 </div>
                 
                 <div id="process-form-container" class="process-form-panel hidden">
