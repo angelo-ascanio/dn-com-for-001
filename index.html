@@ -115,20 +115,22 @@
                 
                 <div id="process-list" class="process-container"></div>
                 
-                <div class="na-section-container" style="margin-top: 30px; border-top: 2px dashed #eee; padding-top: 20px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div id="na-section-card" class="na-section-card">
+                    <div class="na-section-header">
                         <div>
-                            <h4 style="margin:0; color: #555;">Requisitos No Aplicables</h4>
-                            <p style="margin:5px 0 0; font-size:0.8rem; color:#888;">
-                                Cláusulas que no aplican a la organización. Se excluirán de la validación.
-                            </p>
+                            <h3>Requisitos No Aplicables</h3>
+                            <p>Cláusulas excluidas de la validación general.</p>
                         </div>
-                        <div style="text-align: right;">
-                            <span id="na-count-badge" class="badge-count" style="background:#6c757d; font-size: 0.9rem; padding: 5px 10px; margin-right: 10px; display: none;">0</span>
-                            <button class="btn-secondary small" onclick="openNaModal()">Gestionar: No Aplicables</button>
-                        </div>
+                        <button class="ux-btn primary" onclick="openNaModal()">Gestionar</button>
                     </div>
+
+                    <div id="na-summary-content" class="na-summary-content">
+                        No hay requisitos no aplicables definidos.
+                    </div>
+
+                    <div id="cross-conflict-banner" class="cross-conflict-banner hidden"></div>
                 </div>
+
             </div>
 
             <div class="flow-actions split">
@@ -165,6 +167,7 @@
         </section>
 
     </main>
+    <div id="app-toast" class="app-toast hidden"></div>
     <div id="new-requirements-modal" class="nm-overlay hidden">
         <div class="nm-modal-container">
             

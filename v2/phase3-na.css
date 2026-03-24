@@ -1,0 +1,108 @@
+/* ======================================================
+   PHASE 3 — NON APPLICABLE EXPERIENCE
+====================================================== */
+
+.na-section-card {
+    background: #ffffff;
+    border: 1px solid #dfe6ee;
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.na-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 14px;
+}
+
+.na-section-header h3 {
+    margin: 0;
+    color: #003366;
+}
+
+.na-section-header p {
+    margin: 4px 0 0 0;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.na-summary-content {
+    background: #f8f9fb;
+    border: 1px solid #e8edf3;
+    border-radius: 10px;
+    padding: 12px;
+    color: #555;
+    font-size: 0.92rem;
+    line-height: 1.5;
+}
+
+.na-summary-block {
+    margin-bottom: 8px;
+}
+.na-summary-block:last-child {
+    margin-bottom: 0;
+}
+
+.na-summary-title {
+    font-weight: 700;
+    color: #003366;
+    margin-right: 8px;
+}
+
+.cross-conflict-banner {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid #ffb3b3;
+    background: #fff1f1;
+    color: #8a1f1f;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    font-weight: 600;
+}
+
+/* Locked pill button */
+.nm-pill-btn.nm-pill-btn--locked {
+    color: #856404;
+    background: #fff8db;
+    border-color: #f3d37a;
+    cursor: not-allowed;
+    font-size: 1rem;
+}
+.nm-pill-btn.nm-pill-btn--locked:hover {
+    background: #fff3bf;
+    color: #6c5500;
+    transform: none;
+    line-height: 0.8;
+    font-size: 1rem;
+}
+
+/* Optional toast */
+.app-toast {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 4000;
+    min-width: 280px;
+    max-width: 420px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: #fff3cd;
+    color: #664d03;
+    border: 1px solid #ffec99;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    font-weight: 600;
+    animation: toastIn 0.2s ease;
+}
+.app-toast.hidden {
+    display: none !important;
+}
+
+@keyframes toastIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}

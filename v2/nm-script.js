@@ -209,12 +209,35 @@ function renderNavStack() {
         const currentStandard = currentPath.length > 0 ? currentPath[0].code : null;
         const isMarked = isClauseMarked(step.code, currentStandard);
         const showButton = currentStandard !== null && currentStandard !== step.code;
-        
+
         let buttonState = 'none';
         let buttonTitle = '';
+        let buttonClick = null;
+
         if (showButton) {
-            buttonState = isMarked ? 'remove' : 'add';
-            buttonTitle = isMarked ? 'Remover Cláusula' : 'Seleccionar Cláusula';
+            if (isMarked) {
+                buttonState = 'remove';
+                buttonTitle = 'Remover Cláusula';
+                buttonClick = () => {
+                    unmarkClauseAndDescendants(step.code, currentStandard);
+                };
+            } else {
+                const validation = canSelectClauseInCurrentMode(currentStandard, step.code);
+
+                if (validation.allowed) {
+                    buttonState = 'add';
+                    buttonTitle = 'Seleccionar Cláusula';
+                    buttonClick = () => {
+                        toggleMark(step.code, currentStandard);
+                    };
+                } else {
+                    buttonState = 'locked';
+                    buttonTitle = validation.message;
+                    buttonClick = () => {
+                        showToast(validation.message);
+                    };
+                }
+            }
         }
 
         const stepBox = createPill({
@@ -225,10 +248,7 @@ function renderNavStack() {
             pillTitle: "Ver Cláusula",
             buttonTitle: buttonTitle,
             onPillClick: isLast ? null : () => popStack(index + 1),
-            onButtonClick: () => {
-                if (isMarked) unmarkClauseAndDescendants(step.code, currentStandard);
-                else toggleMark(step.code, currentStandard);
-            }
+            onButtonClick: buttonClick,
         });
 
         navStackContainer.appendChild(stepBox);
@@ -258,9 +278,32 @@ function renderOptionsArea(activeItem) {
 
         let buttonState = 'none';
         let buttonTitle = '';
+        let buttonClick = null;
+
         if (showButton) {
-            buttonState = isMarked ? 'remove' : 'add';
-            buttonTitle = isMarked ? 'Remover Cláusula' : 'Seleccionar Cláusula';
+            if (isMarked) {
+                buttonState = 'remove';
+                buttonTitle = 'Remover Cláusula';
+                buttonClick = () => {
+                    unmarkClauseAndDescendants(child.code, currentStandard);
+                };
+            } else {
+                const validation = canSelectClauseInCurrentMode(currentStandard, child.code);
+
+                if (validation.allowed) {
+                    buttonState = 'add';
+                    buttonTitle = 'Seleccionar Cláusula';
+                    buttonClick = () => {
+                        toggleMark(child.code, currentStandard);
+                    };
+                } else {
+                    buttonState = 'locked';
+                    buttonTitle = validation.message;
+                    buttonClick = () => {
+                        showToast(validation.message);
+                    };
+                }
+            }
         }
 
         const childBox = createPill({
@@ -270,10 +313,7 @@ function renderOptionsArea(activeItem) {
             pillTitle: showButton ? "Ver Cláusula" : "Ver Norma",
             buttonTitle: buttonTitle,
             onPillClick: () => drillDown(child),
-            onButtonClick: () => {
-                if (isMarked) unmarkClauseAndDescendants(child.code, currentStandard);
-                else toggleMark(child.code, currentStandard);
-            }
+            onButtonClick: buttonClick,
         });
 
         optionsAreaContainer.appendChild(childBox);
@@ -407,11 +447,21 @@ function jumpToClause(std, code) {
 function toggleMark(clauseCode, std) {
     if (!markedClauses[std]) markedClauses[std] = new Set();
 
+    // already selected in current mode => allow removing
     if (isClauseMarked(clauseCode, std)) {
         unmarkClauseAndDescendants(clauseCode, std);
-    } else {
-        markClauseAndAscendants(clauseCode, std);
+        return;
     }
+
+    const validation = canSelectClauseInCurrentMode(std, clauseCode);
+
+    if (!validation.allowed) {
+        showToast(validation.message);
+        return;
+    }
+
+    markClauseAndAscendants(clauseCode, std);
+
     if (typeof autoSaveModalState === 'function') autoSaveModalState();
 }
 
@@ -540,8 +590,19 @@ function createPill({
     // 3. Build the Right Side (.nm-pill-btn)
     if (buttonState !== 'none') {
         const isRemove = buttonState === 'remove';
-        const btnClass = isRemove ? 'nm-pill-btn nm-pill-btn--remove' : 'nm-pill-btn';
-        const btnIcon = isRemove ? '&times;' : '+';
+        const isLocked = buttonState === 'locked';
+
+        let btnClass = 'nm-pill-btn';
+        let btnIcon = '+';
+
+        if (isRemove) {
+            btnClass = 'nm-pill-btn nm-pill-btn--remove';
+            btnIcon = '×';
+        } else if (isLocked) {
+            btnClass = 'nm-pill-btn nm-pill-btn--locked';
+            btnIcon = '🔒';
+        }
+
         
         const btn = document.createElement('button');
         btn.className = btnClass;

@@ -230,6 +230,8 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAppState();      // Carga datos guardados (si existieran)
     initStandardsUI();   // Renderiza los checkboxes de normas
     renderProcesses();   // Renderiza la lista de procesos
+    renderNaSummary();
+    renderCrossConflictBanner();
     //renderNaStatus();
     initNavigation();    // Configura la navegación SPA
     updateSlimBar();
@@ -653,7 +655,7 @@ function showProcessForm(id = null) {
     const title = document.getElementById("form-title");
 
     formPanel.classList.remove("hidden");
-    document.getElementById("btn-new-process").classList.add("hidden");
+    document.getElementById("btn-add-process").classList.add("hidden");
 
     if (id) {
         const proc = appState.processes.find(p => p.id === id);
@@ -670,7 +672,7 @@ function showProcessForm(id = null) {
 // 2. Ocultar Formulario
 function hideProcessForm() {
     document.getElementById('process-form-container').classList.add('hidden');
-    document.getElementById('btn-new-process').classList.remove('hidden');
+    document.getElementById('btn-add-process').classList.remove('hidden');
     editingProcessId = null;
 }
 
@@ -829,6 +831,251 @@ function loadAppState() {
             console.error("Error cargando estado:", e);
         }
     }
+}
+
+/* ======================================================
+   PHASE 3 — CROSS VALIDATION ENGINE
+   Process <-> Non Applicable (two-way, hierarchical)
+====================================================== */
+
+
+function getCurrentMode() {
+    return currentProcessId === 'NA_MODE' ? 'na' : 'process';
+}
+
+function getOppositeMode() {
+    return getCurrentMode() === 'na' ? 'process' : 'na';
+}
+
+function getAllProcessSelectionsByStandard(std) {
+    const set = new Set();
+
+    appState.processes.forEach(proc => {
+        (proc.assignedRequirements || []).forEach(req => {
+            const [reqStd, clause] = req.split('\n');
+            if (reqStd === std) set.add(clause);
+        });
+    });
+
+    return set;
+}
+
+function getAllNaSelectionsByStandard(std) {
+    const set = new Set();
+
+    (appState.nonApplicableClauses || []).forEach(req => {
+        const [reqStd, clause] = req.split('\n');
+        if (reqStd === std) set.add(clause);
+    });
+
+    return set;
+}
+
+/**
+ * Validation when selecting a clause in PROCESS mode
+ * Process cannot be same as or descendant of any NA clause
+ */
+function validateProcessSelection(std, candidateClause) {
+    const naSet = getAllNaSelectionsByStandard(std);
+
+    for (const naClause of naSet) {
+        if (processConflictsWithNa(std, candidateClause, naClause)) {
+            return {
+                allowed: false,
+                blocker: naClause,
+                message: `${std} ${candidateClause} no puede asignarse al proceso porque entra en conflicto con ${naClause}, declarada como No Aplicable.`
+            };
+        }
+    }
+
+    return {
+        allowed: true,
+        blocker: null,
+        message: ""
+    };
+}
+
+/**
+ * True if processClause is the same as naClause
+ * OR processClause is a descendant of naClause
+ */
+function processConflictsWithNa(std, processClause, naClause) {
+  if (processClause === naClause) return true;
+  const stdData = nm_NORM_DATA[std] || {};
+  const p = stdData[processClause];
+  if (!p) return false;
+  return (p.ancestors || []).includes(naClause);
+}
+
+/**
+ * Validation when selecting a clause in NA mode
+ * NA cannot be:
+ * - the same clause as a Process clause
+ * - an ancestor of an already selected Process clause
+ *
+ * This preserves:
+ * Process = 8.5, NA = 8.5.1  ✅
+ * Process = 8.5.1.f, NA = 8.5.1 ❌
+ */
+function validateNaSelection(std, candidateClause) {
+    const processSet = getAllProcessSelectionsByStandard(std);
+    const stdData = nm_NORM_DATA[std] || {};
+
+    for (const processClause of processSet) {
+        // Exact same clause => block
+        if (candidateClause === processClause) {
+            return {
+                allowed: false,
+                blocker: processClause,
+                message: `${std} ${candidateClause} no puede declararse como No Aplicable porque ya está asignada a un proceso.`
+            };
+        }
+
+        // If candidate NA is an ancestor of an existing process clause => block
+        const processData = stdData[processClause];
+        if (processData && (processData.ancestors || []).includes(candidateClause)) {
+            return {
+                allowed: false,
+                blocker: processClause,
+                message: `${std} ${candidateClause} no puede declararse como No Aplicable porque sería más amplia que ${processClause}, ya asignada a un proceso.`
+            };
+        }
+    }
+
+    return {
+        allowed: true,
+        blocker: null,
+        message: ""
+    };
+}
+
+function canSelectClauseInCurrentMode(std, clauseCode) {
+    if (getCurrentMode() === 'na') {
+        return validateNaSelection(std, clauseCode);
+    }
+    return validateProcessSelection(std, clauseCode);
+}
+
+function getOppositeSelectionsByStandard(std) {
+    if (getCurrentMode() === 'na') {
+        return getAllProcessSelectionsByStandard(std);
+    }
+    return getAllNaSelectionsByStandard(std);
+}
+
+function getCrossModeConflicts() {
+    const conflicts = [];
+
+    appState.processes.forEach(proc => {
+        (proc.assignedRequirements || []).forEach(req => {
+            const [std, processClause] = req.split('\n');
+
+            (appState.nonApplicableClauses || []).forEach(naReq => {
+                const [naStd, naClause] = naReq.split('\n');
+
+                if (std !== naStd) return;
+
+                if (processConflictsWithNa(std, processClause, naClause)) {
+                    conflicts.push({
+                        std,
+                        processId: proc.id,
+                        processName: proc.name,
+                        processClause,
+                        naClause
+                    });
+                }
+            });
+        });
+    });
+
+    const seen = new Set();
+    return conflicts.filter(item => {
+        const key = `${item.std}|${item.processId}|${item.processClause}|${item.naClause}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+function renderNaSummary() {
+    const container = document.getElementById("na-summary-content");
+    if (!container) return;
+
+    if (!appState.nonApplicableClauses || appState.nonApplicableClauses.length === 0) {
+        container.innerHTML = `No hay requisitos no aplicables definidos.`;
+        return;
+    }
+
+    const grouped = {};
+
+    appState.nonApplicableClauses.forEach(req => {
+        const [std, clause] = req.split('\n');
+        if (!grouped[std]) grouped[std] = new Set();
+        grouped[std].add(clause);
+    });
+
+    let html = "";
+    Object.keys(grouped).forEach(std => {
+        const clauses = Array.from(grouped[std]).sort((a, b) =>
+            a.localeCompare(b, undefined, { numeric: true })
+        );
+
+        html += `
+            <div class="na-summary-block">
+                <span class="na-summary-title">${std}:</span>
+                <span>${clauses.join(", ")}</span>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function renderCrossConflictBanner() {
+    const banner = document.getElementById("cross-conflict-banner");
+    if (!banner) return;
+
+    const conflicts = getCrossModeConflicts();
+
+    if (conflicts.length === 0) {
+        banner.classList.add("hidden");
+        banner.innerHTML = "";
+        return;
+    }
+
+    const preview = conflicts.slice(0, 5).map(c =>
+        `<div>• ${c.std}: proceso <strong>${c.processName}</strong> usa <strong>${c.processClause}</strong> y NA contiene <strong>${c.naClause}</strong></div>`
+    ).join("");
+
+    const more = conflicts.length > 5
+        ? `<div style="margin-top:6px;">Y ${conflicts.length - 5} conflicto(s) más...</div>`
+        : "";
+
+    banner.innerHTML = `
+        Se detectaron conflictos entre requisitos aplicables y no aplicables.
+        ${preview}
+        ${more}
+        <div style="margin-top:8px; font-weight:700;">
+            Debes resolverlos antes de considerar el documento válido.
+        </div>
+    `;
+    banner.classList.remove("hidden");
+}
+
+function showToast(message, timeout = 3200) {
+    const toast = document.getElementById("app-toast");
+    if (!toast) {
+        alert(message);
+        return;
+    }
+
+    toast.innerHTML = message;
+    toast.classList.remove("hidden");
+
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(() => {
+        toast.classList.add("hidden");
+    }, timeout);
 }
 
 /**
@@ -999,7 +1246,6 @@ function renderMissingRequirements() {
     }
 }
 
-
 /**
  * =================================================================================
  * FASE 4 & 5: PUENTE CON EL NUEVO MODAL SPA
@@ -1035,6 +1281,9 @@ function autoSaveModalState() {
         }
     }
     updateSlimBar(); // Reflect coverage changes instantly
+    renderNaSummary();
+    renderCrossConflictBanner();
+    renderProcesses();
 }
 
 function autoSaveProcessName() {
@@ -1088,5 +1337,7 @@ function openNaModal() {
 function closeModal() {
     document.getElementById('new-requirements-modal').classList.add('hidden');
     currentProcessId = null;
-    renderProcesses(); // Refresh UI list when closing
+    renderProcesses();
+    renderNaSummary();
+    renderCrossConflictBanner();
 }
