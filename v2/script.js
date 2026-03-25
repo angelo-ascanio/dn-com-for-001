@@ -657,7 +657,6 @@ function refreshMainNav() {
         setNavClass(navLoad, loadComplete ? 'complete' : 'incomplete');
     }
 
-    console.log(loadComplete)
     // INITIAL
     if (navInitial) {
         navInitial.disabled = !loadComplete;
