@@ -33,22 +33,85 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
     font-weight: bold;
     color: #666;
     border-bottom: 4px solid #eee;
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
     max-width: 200px;
+    position: relative; /* required for current dot */
 }
 
-.nav-btn:hover { background-color: #f0f0f0; color: #003366; }
-.nav-btn.active { border-bottom-color: #003366; color: #003366; }
-.nav-btn:disabled {cursor: not-allowed; }
-.nav-btn.locked {border-bottom-color: #d1d1d1;color: #aaa;background: #e9ecef; }
-.nav-btn.current {
-    border-bottom-color: #003366;
+.nav-btn:hover {
+    background-color: #f0f0f0;
     color: #003366;
-    background: #fff;
+}
+
+.nav-btn:disabled {
+    cursor: not-allowed;
+}
+
+.nav-btn.locked {
+    border-bottom-color: #d1d1d1;
+    color: #aaa;
+    background: #e9ecef;
+}
+
+.nav-btn.incomplete {
+    border-bottom-color: #ffc107;
+    color: #856404;
+    background: #fffaf0;
+}
+
+.nav-btn.complete {
+    border-bottom-color: #28a745;
+    color: #155724;
+    background: #f6fff8;
+}
+
+.nav-btn.error {
+    border-bottom-color: #dc3545;
+    color: #721c24;
+    background: #fff1f3;
+}
+
+/* current is only a visual emphasis, not a state override */
+.nav-btn.current {
+    background: #ffffff !important;
     font-weight: 800;
 }
-.nav-btn.incomplete {border-bottom-color: #ffc107; color: #856404; }
-.nav-btn.complete {border-bottom-color: #28a745; color: #155724; }
+
+/* small dot in upper-right corner to indicate current section */
+.nav-btn.current::after {
+    content: "";
+    position: absolute;
+    top: 7px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #003366;
+    box-shadow: 0 0 0 2px #ffffff;
+}
+
+.date-context-help {
+    margin-top: 6px;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    color: #666;
+}
+
+.date-context-help.notice {
+    color: #8a6d3b;
+    background: #fffaf0;
+    border-left: 4px solid #ffc107;
+    padding: 6px 8px;
+    border-radius: 4px;
+}
+
+.date-context-help.future {
+    color: #0c5460;
+    background: #eef9ff;
+    border-left: 4px solid #17a2b8;
+    padding: 6px 8px;
+    border-radius: 4px;
+}
 
 .flow-actions {
     margin-top: 0px;

@@ -3,12 +3,10 @@
 ------------------------------------------------------ */
 
 function unifyNavHighlight(targetId) {
-    // Clear all
     document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.classList.remove('current', 'complete', 'incomplete');
+        btn.classList.remove('current');
     });
 
-    // Mark current
     const target = document.getElementById('nav-' + targetId);
     if (target) target.classList.add('current');
 }
@@ -25,14 +23,11 @@ function showInvalid(el) {
 
 /* Override your navigateFlow to include unified UX */
 const _oldNavigateFlow = typeof navigateFlow !== "undefined" ? navigateFlow : null;
-
 navigateFlow = function (targetId) {
     if (_oldNavigateFlow) _oldNavigateFlow(targetId);
 
-    unifyNavHighlight(targetId);
-
     const sec = document.getElementById(targetId);
-    sec.classList.add('fade-in');
+    if (sec) sec.classList.add('fade-in');
 };
 
 /* Improved validation visuals */
@@ -51,13 +46,14 @@ function updateInitialStepVisuals(isValid) {
 /* Hook into your existing validateStep */
 const _oldValidateStep = validateStep;
 validateStep = function (stepId) {
-    _oldValidateStep(stepId);
+    const result = _oldValidateStep(stepId);
 
     if (stepId === "sec-initial") {
-        const org = document.getElementById('input-org').value.trim();
-        const date = document.getElementById('input-date').value;
-        const hasStd = appState.Standards.size > 0;
-
-        updateInitialStepVisuals(org !== "" && date !== "" && hasStd);
+        updateInitialStepVisuals(result);
     }
+
+    refreshMainNav();
+    renderExportStatus();
+
+    return result;
 };

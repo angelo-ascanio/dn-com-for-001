@@ -5,7 +5,7 @@
  */
 
 const PDF_MAX_PROCESSES = 30;
-const SECTIONS = ['sec-load', 'sec-initial', 'sec-processes', 'sec-export'];
+const SECTIONS = ['sec-load', 'sec-initial', 'sec-na', 'sec-processes', 'sec-export'];
 
 /* * 1. BASE DE DATOS NORMATIVA (INMUTABLE)
 */
@@ -178,12 +178,10 @@ let SEARCH_INDEX = [];
  */
 
 // Function to handle the "New Document" card click
-function startNewDocument() { 
-    resetAppState(); 
-    document.getElementById('nav-sec-initial').disabled = false;
-    document.getElementById('nav-sec-initial').classList.remove('locked');
-    
+function startNewDocument() {
+    resetAppState();
     navigateFlow('sec-initial');
+    refreshMainNav();
 }
 
 // The logic to clean the app state (Currently disabled in invocation above)
@@ -215,8 +213,8 @@ function resetAppState() {
     // Render empty lists
     initStandardsUI();
     renderProcesses();
-    //renderNaStatus();
     updateSlimBar();
+    renderInitial();
 }
 
 /**
@@ -226,61 +224,18 @@ function resetAppState() {
  */
 document.addEventListener('DOMContentLoaded', () => {
     enrichNormData();
-    // initKnowledgeBase(); // Prepara los datos de 
-    loadAppState();      // Carga datos guardados (si existieran)
-    initStandardsUI();   // Renderiza los checkboxes de normas
-    renderProcesses();   // Renderiza la lista de procesos
+    loadAppState();
+    initStandardsUI();
+    renderInitial();
+    renderProcesses();
+    renderProcessesStatus();
     renderNaSummary();
     renderCrossConflictBanner();
-    //renderNaStatus();
-    initNavigation();    // Configura la navegación SPA
+    initNavigation();
     updateSlimBar();
+    renderExportStatus();
+    refreshMainNav();
 });
-
-/* * Transforma el nm_NORM_DATA (Objeto jerárquico) en un Array plano 
- * optimizado solo para el motor de búsqueda (Search Index).
- */
-// function initKnowledgeBase() {
-//     SEARCH_INDEX = [];
-    
-//     // Iteramos sobre las claves de nm_NORM_DATA (ej: "4.1", "4.2.a")
-//     for (const [clauseKey, data] of Object.entries(nm_NORM_DATA)) {
-//         // data.standards es un array ["ISO 9001...", "ISO 14001..."]
-//         // Creamos una entrada por cada norma para facilitar el filtrado
-//         data.standards.forEach(stdName => {
-//             SEARCH_INDEX.push({
-//                 key: clauseKey,          // "4.1"
-//                 standard: stdName,       // "ISO 9001:2015"
-//                 fullText: `${stdName} ${clauseKey}`.toLowerCase(), // Index para búsqueda rápida
-//                 parent: data.parent      // "4" (Para lógica de jerarquía futura)
-//             });
-//         });
-//     }
-//     console.log(`Base de conocimiento indexada: ${SEARCH_INDEX.length} registros.`);
-// }
-
-/**
- * =================================================================================
- * FASE 2: NAVEGACIÓN SPA
- * =================================================================================
- */
-// function navigateTo(targetId) {
-//     document.querySelectorAll('.spa-section').forEach(el => {
-//         el.classList.add('hidden');
-//         el.classList.remove('active-section');
-//     });
-//     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-
-//     const targetSection = document.getElementById(targetId);
-//     if (targetSection) {
-//         targetSection.classList.remove('hidden');
-//         targetSection.classList.add('active-section');
-//     }
-//     const targetBtn = document.getElementById(`btn-${targetId}`);
-//     if (targetBtn) targetBtn.classList.add('active');
-//     appState.navigate = targetId;
-//     saveAppState();
-// }
 
 /**
  * =================================================================================
@@ -296,8 +251,6 @@ const AVAILABLE_STANDARDS = [
     "ISO 9001:2015", "ISO 14001:2015", "ISO 45001:2018", 
     "ISO 22000:2018", "ISO 27001:2022", "NTF 4073:2022"
 ];
-
-// --- REEMPLAZAR initStandardsUI Y toggleStandard ---
 
 function initStandardsUI() {
     const container = document.getElementById('standards-checks');
@@ -374,9 +327,10 @@ function toggleStandard(stdName, index) {
         appState.Standards.add(stdName);
         appState.standardDetails[stdName] = { type: "", cert: "N/A" };
     }
-    
-    initStandardsUI(); // Simplest way to reflect complete state change
+
     saveAppState();
+    initStandardsUI(); // Simplest way to reflect complete state change
+    renderInitial();
     validateStep('sec-initial'); 
 }
 
@@ -543,7 +497,9 @@ function validateStep(stepId) {
                 const sel = document.getElementById(`sel-std-${index}`);
                 const inp = document.getElementById(`inp-std-${index}`);
                 
-                if (!sel || !inp) return;
+                if (!sel || !inp) {
+                    isValid = false;
+                };
                 
                 // Si no hay tipo de certificación seleccionado
                 if (sel.value == "" || sel.value == "N/A") {
@@ -576,70 +532,177 @@ function validateStep(stepId) {
         appState.meta.organizationName = org;
         appState.meta.reportDate = date;
         saveAppState();
+        return isValid;
+    }
+
+    if (stepId === 'sec-na') {
+        const navNa = document.getElementById('nav-sec-na');
+        const navProcess = document.getElementById('nav-sec-processes');
+
+        if (!navNa.classList.contains('current')) {
+            (navNa, 'complete');
+        }
+
+        navProcess.disabled = false;
+        navProcess.classList.remove('locked');
+
+        if (!navProcess.classList.contains('current') && !navProcess.classList.contains('complete')) {
+            setNavClass(navProcess, 'incomplete');
+        }
+    }
+
+    if (stepId === 'sec-processes') {
+        const navProcess = document.getElementById('nav-sec-processes');
+        const navExport = document.getElementById('nav-sec-export');
+
+        if (!navProcess.classList.contains('current')) {
+            setNavClass(navProcess, 'complete');
+        }
+
+        navExport.disabled = false;
+        navExport.classList.remove('locked');
+
+        if (!navExport.classList.contains('current') && !navExport.classList.contains('complete')) {
+            setNavClass(navExport, 'incomplete');
+        }
     }
     // Actualizar botones y navegación (Pasar a updateNavUI si es false, bloquea)
     updateNavUI(isValid);
 }
 
 function updateNavUI(isInitialValid) {
-    const navInitial = document.getElementById('nav-sec-initial');
-    const navProcess = document.getElementById('nav-sec-processes');
-    const navExport = document.getElementById('nav-sec-export');
     const btnNextInitial = document.getElementById('btn-next-initial');
-
-    // 1. ESTADO DE SECCIÓN INICIAL
-    if (isInitialValid) {
-        // Si ya pasamos a la siguiente, esta se queda verde (Complete), si estamos en ella es Azul/Verde
-        if (!navInitial.classList.contains('current')) {
-            setNavClass(navInitial, 'complete');
-        }
-        
-        // DESBLOQUEAR PROCESOS
-        navProcess.disabled = false;
-        navProcess.classList.remove('locked');
-        btnNextInitial.disabled = false;
-        
-        // Si procesos no es el actual, ponerlo en incompleto (amarillo) por defecto
-        if (!navProcess.classList.contains('current') && !navProcess.classList.contains('complete')) {
-            setNavClass(navProcess, 'incomplete');
-        }
-
-    } else {
-        setNavClass(navInitial, 'incomplete'); // Amarillo si faltan datos
-        if (navInitial.classList.contains('current')) navInitial.classList.remove('incomplete'); // Azul si es current
-
-        // BLOQUEAR SIGUIENTES 
-        navProcess.disabled = true;
-        setNavClass(navProcess, 'locked');
-        btnNextInitial.disabled = true;
-        
-        navExport.disabled = true;
-        setNavClass(navExport, 'locked');
+    if (btnNextInitial) {
+        btnNextInitial.disabled = !isInitialValid;
     }
+
+    refreshMainNav();
 }
 
 function setNavClass(element, state) {
-    element.classList.remove('locked', 'current', 'incomplete', 'complete');
-    element.classList.add(state);
+    if (!element) return;
+    element.classList.remove('locked', 'incomplete', 'complete', 'error');
+    if (state) element.classList.add(state);
+}
+
+function setNavStatusClass(element, state) {
+    if (!element) return;
+    element.classList.remove('locked', 'incomplete', 'complete', 'error');
+    if (state) element.classList.add(state);
+}
+
+function setCurrentNav(targetId) {
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('current');
+    });
+
+    const target = document.getElementById(`nav-${targetId}`);
+    if (target) target.classList.add('current');
+}
+
+function hasInitialErrors() {
+    for (let index = 0; index < AVAILABLE_STANDARDS.length; index++) {
+        const std = AVAILABLE_STANDARDS[index];
+        if (!appState.Standards.has(std)) continue;
+
+        const sel = document.getElementById(`sel-std-${index}`);
+        const inp = document.getElementById(`inp-std-${index}`);
+
+        if (!sel || !inp) return true;
+
+        // selected standard but missing audit type
+        if (sel.value === "" || sel.value === "N/A") return true;
+
+        // manual cert mode => invalid format
+        if (!inp.disabled && !validateCertificateFormat(inp.value.trim(), std)) return true;
+
+        // auto mode but no generated value
+        if (inp.disabled && (inp.value.trim() === "" || inp.value.trim() === "N/A")) return true;
+    }
+
+    return false;
 }
 
 function navigateFlow(targetId) {
-    updateSlimBar();
-    // 1. Ocultar todas las secciones
-    document.querySelectorAll('.spa-section').forEach(el => el.classList.add('hidden'));
-    
-    // 2. Quitar clase 'current' de todos los botones nav
-    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('current'));
-
-    // 3. Mostrar Target
-    document.getElementById(targetId).classList.remove('hidden');
-    document.getElementById(`nav-${targetId}`).classList.add('current');
-    document.getElementById(`nav-${targetId}`).classList.remove('incomplete', 'complete'); // Current tiene prioridad visual
-    validateStep(targetId);
     appState.navigate = targetId;
     saveAppState();
-    // Re-ejecutar validación para pintar los OTROS botones correctamente (ej: pintar el anterior de verde)
-    
+
+    updateSlimBar();
+
+    document.querySelectorAll('.spa-section').forEach(el => el.classList.add('hidden'));
+    document.getElementById(targetId).classList.remove('hidden');
+
+    validateStep(targetId);
+    refreshMainNav();
+}
+
+function refreshMainNav() {
+    const current = appState.navigate || 'sec-load';
+
+    const navLoad = document.getElementById('nav-sec-load');
+    const navInitial = document.getElementById('nav-sec-initial');
+    const navNa = document.getElementById('nav-sec-na');
+    const navProcesses = document.getElementById('nav-sec-processes');
+    const navExport = document.getElementById('nav-sec-export');
+
+    const loadComplete = isLoadComplete();
+    const initialState = getInitialSectionState(); // complete / incomplete / error
+    const processesComplete = isProcessesComplete();
+    const exportReady = isDocumentReadyForFinalExport();
+
+    // LOAD
+    if (navLoad) {
+        navLoad.disabled = false;
+        navLoad.classList.remove('locked');
+        setNavClass(navLoad, loadComplete ? 'complete' : 'incomplete');
+    }
+
+    console.log(loadComplete)
+    // INITIAL
+    if (navInitial) {
+        navInitial.disabled = !loadComplete;
+        if (!loadComplete) {
+            setNavClass(navInitial, 'locked');
+        } else {
+            setNavClass(navInitial, initialState);
+        }
+    }
+
+    // NA (optional once Initial is valid)
+    if (navNa) {
+        navNa.disabled = !isInitialComplete();
+        if (!isInitialComplete()) {
+            setNavClass(navNa, 'locked');
+        } else {
+            setNavClass(navNa, 'complete');
+        }
+    }
+
+    // PROCESSES (mandatory once Initial is valid)
+    if (navProcesses) {
+        navProcesses.disabled = !isInitialComplete();
+        if (!isInitialComplete()) {
+            setNavClass(navProcesses, 'locked');
+        } else if (processesComplete) {
+            setNavClass(navProcesses, 'complete');
+        } else {
+            setNavClass(navProcesses, 'incomplete');
+        }
+    }
+
+    // EXPORT (accessible once Initial is valid)
+    if (navExport) {
+        navExport.disabled = !isInitialComplete();
+        if (!isInitialComplete()) {
+            setNavClass(navExport, 'locked');
+        } else if (exportReady) {
+            setNavClass(navExport, 'complete');
+        } else {
+            setNavClass(navExport, 'incomplete');
+        }
+    }
+
+    setCurrentNav(current);
 }
 
 /**
@@ -710,6 +773,10 @@ function saveProcess() {
     saveAppState();
     hideProcessForm();
     renderProcesses();
+    renderProcessesStatus();
+    renderExportStatus();
+    refreshMainNav();
+
 }
 
 // 4. Eliminar
@@ -718,13 +785,190 @@ function deleteProcessUI(id) {
         appState.processes = appState.processes.filter(p => p.id !== id);
         saveAppState();
         renderProcesses();
+        renderProcessesStatus();
+        renderExportStatus();
+        refreshMainNav();
     }
+}
+
+let initialListenersAttached = false;
+
+function ensureDateContextHelp() {
+    let help = document.getElementById('date-context-help');
+    const dateInput = document.getElementById('input-date');
+
+    if (!help && dateInput) {
+        help = document.createElement('div');
+        help.id = 'date-context-help';
+        help.className = 'date-context-help';
+        dateInput.insertAdjacentElement('afterend', help);
+    }
+
+    return help;
+}
+
+function renderDateContextHelp() {
+    const help = ensureDateContextHelp();
+    const dateValue = document.getElementById('input-date')?.value;
+
+    if (!help) return;
+
+    help.className = 'date-context-help';
+    help.innerHTML = '';
+
+    if (!dateValue) return;
+
+    const selected = new Date(dateValue + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const diffMs = today.getTime() - selected.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 15) {
+        help.classList.add('notice');
+        help.innerHTML = `La fecha seleccionada tiene más de 15 días. Verifique si aún corresponde.`;
+        return;
+    }
+
+    if (diffDays < 0) {
+        help.classList.add('future');
+        help.innerHTML = `La fecha seleccionada está en el futuro. Verifique si corresponde.`;
+        return;
+    }
+}
+
+function renderInitial() {
+    const orgInput = document.getElementById('input-org');
+    const dateInput = document.getElementById('input-date');
+
+    if (!initialListenersAttached) {
+        if (orgInput) {
+            orgInput.addEventListener('input', (e) => {
+                appState.meta.organizationName = e.target.value;
+                saveAppState();
+                validateStep('sec-initial');
+                renderDateContextHelp();
+            });
+        }
+
+        if (dateInput) {
+            dateInput.addEventListener('input', (e) => {
+                appState.meta.reportDate = e.target.value;
+                saveAppState();
+                validateStep('sec-initial');
+                renderDateContextHelp();
+            });
+        }
+
+        initialListenersAttached = true;
+    }
+
+    if (orgInput) orgInput.value = appState.meta.organizationName || "";
+    if (dateInput) dateInput.value = appState.meta.reportDate || "";
+
+    renderDateContextHelp();
+    validateStep('sec-initial');
+}
+
+function isLoadComplete() {
+    return appState.navigate !== "" && appState.navigate !== "sec-load";
+}
+
+function getInitialSectionState() {
+    const org = document.getElementById('input-org')?.value.trim() || "";
+    const date = document.getElementById('input-date')?.value || "";
+
+    // missing basic fields
+    if (!org || !date || appState.Standards.size === 0) {
+        return 'incomplete';
+    }
+
+    let hasMissing = false;
+    let hasError = false;
+
+    for (let index = 0; index < AVAILABLE_STANDARDS.length; index++) {
+        const std = AVAILABLE_STANDARDS[index];
+        if (!appState.Standards.has(std)) continue;
+
+        const sel = document.getElementById(`sel-std-${index}`);
+        const inp = document.getElementById(`inp-std-${index}`);
+
+        if (!sel || !inp) {
+            hasMissing = true;
+            continue;
+        }
+
+        // selected standard but audit type not chosen yet
+        if (sel.value === "" || sel.value === "N/A") {
+            hasMissing = true;
+            continue;
+        }
+
+        // auto-generated modes: if somehow empty, it's incomplete (not error)
+        if (inp.disabled) {
+            if (inp.value.trim() === "" || inp.value.trim() === "N/A") {
+                hasMissing = true;
+            }
+            continue;
+        }
+
+        // manual modes (Seguimiento, Renovación, etc.)
+        const val = inp.value.trim();
+
+        // empty manual input => incomplete (yellow), not error
+        if (val === "") {
+            hasMissing = true;
+            continue;
+        }
+
+        // non-empty but invalid => error (red)
+        if (!validateCertificateFormat(val, std)) {
+            hasError = true;
+        }
+    }
+
+    if (hasError) return 'error';
+    if (hasMissing) return 'incomplete';
+    return 'complete';
+}
+
+function isInitialComplete() {
+    return getInitialSectionState() === 'complete';
+}
+
+function hasInitialErrors() {
+    return getInitialSectionState() === 'error';
+}
+
+function isProcessesComplete() {
+    if (!appState.processes || appState.processes.length === 0) return false;
+
+    return appState.processes.every(proc =>
+        proc.name &&
+        proc.name.trim() !== "" &&
+        Array.isArray(proc.assignedRequirements) &&
+        proc.assignedRequirements.length > 0
+    );
+}
+
+function isDocumentReadyForFinalExport() {
+    if (!isInitialComplete()) return false;
+    if (!isProcessesComplete()) return false;
+    if (getCrossModeConflicts().length > 0) return false;
+
+    for (const std of appState.Standards) {
+        const coverage = calculateStandardCoverage(std);
+        if (coverage.total !== coverage.covered) return false;
+    }
+
+    return true;
 }
 
 // 5. Renderizado de Tarjetas
 function renderProcesses() {
     //const grid = document.getElementById("process-grid");
-    const grid = document.getElementById("process-list");
+    const grid = document.getElementById("process-grid");
     grid.innerHTML = "";
 
     const processCount = appState.processes.length;
@@ -779,6 +1023,84 @@ function renderProcesses() {
 
         grid.appendChild(card);
     });
+
+    renderProcessesStatus();
+    renderExportStatus();
+    refreshMainNav();
+}
+
+function renderProcessesStatus() {
+    const container = document.getElementById('process-section-status');
+    if (!container) return;
+
+    if (!appState.processes || appState.processes.length === 0) {
+        container.innerHTML = `<div class="missing-title">Procesos pendientes</div><div class="missing-std-block">Debes registrar al menos un proceso.</div>`;
+        container.classList.remove('hidden');
+        return;
+    }
+
+    const incomplete = appState.processes.filter(proc =>
+        !proc.assignedRequirements || proc.assignedRequirements.length === 0
+    );
+
+    if (incomplete.length > 0) {
+        container.innerHTML = `
+            <div class="missing-title">Procesos incompletos</div>
+            ${incomplete.map(p => `<div class="missing-std-block">• ${p.name || 'Proceso sin nombre'} no tiene requisitos asignados.</div>`).join('')}
+        `;
+        container.classList.remove('hidden');
+        return;
+    }
+
+    container.classList.add('hidden');
+    container.innerHTML = '';
+}
+
+function renderExportStatus() {
+    const container = document.getElementById('export-validation-status');
+    if (!container) return;
+
+    const messages = [];
+
+    if (!isInitialComplete()) {
+        messages.push("La información general aún está incompleta.");
+    }
+
+    if (!appState.processes || appState.processes.length === 0) {
+        messages.push("Debes registrar al menos un proceso.");
+    } else {
+        const incomplete = appState.processes.filter(p => !p.assignedRequirements || p.assignedRequirements.length === 0);
+        if (incomplete.length > 0) {
+            messages.push("Existen procesos sin requisitos asignados.");
+        }
+    }
+
+    const conflicts = getCrossModeConflicts();
+    if (conflicts.length > 0) {
+        messages.push("Existen conflictos entre requisitos aplicables y no aplicables.");
+    }
+
+    for (const std of appState.Standards) {
+        const coverage = calculateStandardCoverage(std);
+        if (coverage.total !== coverage.covered) {
+            messages.push(`${std} aún tiene cláusulas pendientes por asignar.`);
+        }
+    }
+
+    if (messages.length === 0) {
+        container.innerHTML = `
+            <h3 style="margin-top:0; color:#155724;">Documento validado</h3>
+            <p style="margin-bottom:0;">El documento está completo y listo para exportarse como salida final.</p>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <h3 style="margin-top:0; color:#856404;">Documento aún no validado</h3>
+        <div>
+            ${messages.map(msg => `<div style="margin-bottom:6px;">• ${msg}</div>`).join('')}
+        </div>
+    `;
 }
 
 /**
@@ -1002,12 +1324,11 @@ function renderNaSummary() {
     if (!container) return;
 
     if (!appState.nonApplicableClauses || appState.nonApplicableClauses.length === 0) {
-        container.innerHTML = `No hay requisitos no aplicables definidos.`;
+        container.innerHTML = `No hay exclusiones definidas.`;
         return;
     }
 
     const grouped = {};
-
     appState.nonApplicableClauses.forEach(req => {
         const [std, clause] = req.split('\n');
         if (!grouped[std]) grouped[std] = new Set();
@@ -1118,32 +1439,25 @@ function updateSlimBar() {
 }
 
 function calculateStandardCoverage(std) {
-    // 1. Obtener todas las cláusulas "hoja" (sin hijos) para esta norma directamente
     const clauses = nm_NORM_DATA[std] || {};
     const leafClauses = Object.keys(clauses).filter(key => clauses[key].children.length === 0);
-    
     const totalLeaves = leafClauses.length;
+
     if (totalLeaves === 0) return { total: 0, covered: 0 };
 
-    // 2. Recolectar cláusulas cubiertas (Procesos + N/A)
-    coveredSet = new Set();
+    const processReqs = [];
     appState.processes.forEach(proc => {
-        proc.assignedRequirements.forEach(reqKey => {
-            const [reqStd, clause] = reqKey.split('|');
-            if (reqStd === std) {
-                coveredSet.add(clause);
-            }
-        });
+        (proc.assignedRequirements || []).forEach(req => processReqs.push(req));
     });
-    
-    (appState.nonApplicableClauses || []).forEach(reqKey => {
-        const [reqStd, clause] = reqKey.split('|');
-        if (reqStd === std) coveredSet.add(clause);
-    });
-    
+
+    const naReqs = appState.nonApplicableClauses || [];
+
+    const coveredProcess = expandStoredClausesForStandard(std, processReqs);
+    const coveredNA = expandStoredClausesForStandard(std, naReqs);
+
+    coveredSet = new Set([...coveredProcess, ...coveredNA]);
     coveredStd[std] = coveredSet;
 
-    // 3. Contar hojas cubiertas
     let coveredCount = 0;
     leafClauses.forEach(leaf => {
         if (coveredSet.has(leaf)) coveredCount++;
@@ -1246,6 +1560,23 @@ function renderMissingRequirements() {
     }
 }
 
+function expandStoredClausesForStandard(std, storedReqs) {
+    const stdData = nm_NORM_DATA[std] || {};
+    const expanded = new Set();
+
+    storedReqs.forEach(reqKey => {
+        const [reqStd, clause] = reqKey.split('\n');
+        if (reqStd !== std) return;
+
+        expanded.add(clause);
+
+        const descendants = stdData[clause]?.descendants || [];
+        descendants.forEach(desc => expanded.add(desc));
+    });
+
+    return expanded;
+}
+
 /**
  * =================================================================================
  * FASE 4 & 5: PUENTE CON EL NUEVO MODAL SPA
@@ -1260,30 +1591,35 @@ function autoSaveModalState() {
     if (!currentProcessId) return;
 
     let flattenedReqs = [];
+
     for (const std in markedClauses) {
-        markedClauses[std].forEach(clause => {
-            flattenedReqs.push(`${std}|${clause}`);
+        const collapsed = getCollapsedClauses(std);
+        collapsed.forEach(clause => {
+            flattenedReqs.push(`${std}\n${clause}`);
         });
     }
 
     if (currentProcessId === 'NA_MODE') {
         appState.nonApplicableClauses = flattenedReqs;
-        appState.naLastPath = [...currentPath]; // Save position
+        appState.naLastPath = [...currentPath];
         saveAppState();
-        //renderNaStatus(); 
     } else {
         const process = appState.processes.find(p => p.id === currentProcessId);
         if (process) {
             process.name = document.getElementById('nm-process-title').value;
             process.assignedRequirements = flattenedReqs;
-            appState.lastPath = [...currentPath]; // Save position
+            appState.lastPath = [...currentPath];
             saveAppState();
         }
     }
-    updateSlimBar(); // Reflect coverage changes instantly
+
+    updateSlimBar();
     renderNaSummary();
     renderCrossConflictBanner();
     renderProcesses();
+    renderProcessesStatus();
+    renderExportStatus();
+    refreshMainNav();
 }
 
 function autoSaveProcessName() {
@@ -1340,4 +1676,8 @@ function closeModal() {
     renderProcesses();
     renderNaSummary();
     renderCrossConflictBanner();
+    renderProcessesStatus();
+    renderExportStatus();
+    refreshMainNav();
+
 }

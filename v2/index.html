@@ -17,10 +17,11 @@
     </header>
 
     <nav class="main-nav">
-        <button onclick="navigateFlow('sec-load')" id="nav-sec-load" class="nav-btn current">CARGAR</button>
-        <button onclick="navigateFlow('sec-initial')" id="nav-sec-initial" class="nav-btn current">INICIAL</button>
-        <button onclick="navigateFlow('sec-processes')" id="nav-sec-processes" class="nav-btn locked" disabled>PROCESOS</button>
-        <button onclick="navigateFlow('sec-export')" id="nav-sec-export" class="nav-btn locked" disabled>EXPORTAR</button>
+        <button id="nav-sec-load" class="nav-btn current" onclick="navigateFlow('sec-load')">CARGAR</button>
+        <button id="nav-sec-initial" class="nav-btn locked" disabled onclick="navigateFlow('sec-initial')">INICIAL</button>
+        <button id="nav-sec-na" class="nav-btn locked" disabled onclick="navigateFlow('sec-na')">NO APLICABLES</button>
+        <button id="nav-sec-processes" class="nav-btn locked" disabled onclick="navigateFlow('sec-processes')">PROCESOS</button>
+        <button id="nav-sec-export" class="nav-btn locked" disabled onclick="navigateFlow('sec-export')">EXPORTAR</button>
     </nav>
 
     <div id="app-container" class="ux-container">
@@ -72,9 +73,33 @@
             </div>
 
             <div class="ux-footer">
-                <button class="ux-btn next" id="btn-next-initial" onclick="navigateFlow('sec-processes')" disabled>
+                <button class="ux-btn next" id="btn-next-initial" onclick="navigateFlow('sec-na')" disabled>
                     Siguiente →
                 </button>
+            </div>
+        </section>
+
+        <section id="sec-na" class="spa-section ux-section hidden">
+            <div class="ux-header">
+                <h2>Requisitos No Aplicables</h2>
+                <p class="ux-subtitle">Defina únicamente las cláusulas excluidas del sistema.</p>
+            </div>
+
+            <div id="na-section-card" class="na-section-card">
+                <div class="na-section-header">
+                    <button class="ux-btn primary" onclick="openNaModal()">Gestionar</button>
+                </div>
+
+                <div id="na-summary-content" class="na-summary-content">
+                    No hay requisitos no aplicables definidos.
+                </div>
+
+                <div id="cross-conflict-banner" class="cross-conflict-banner hidden"></div>
+            </div>
+
+            <div class="ux-footer split">
+                <button class="ux-btn prev" onclick="navigateFlow('sec-initial')">← Anterior</button>
+                <button class="ux-btn next" onclick="navigateFlow('sec-processes')">Siguiente →</button>
             </div>
         </section>
 
@@ -84,18 +109,32 @@
                 <h2>Procesos</h2>
                 <p class="ux-subtitle">Defina los procesos y asigne los requisitos aplicables.</p>
             </div>
-            <div id="process-capacity-warning" class="process-warning hidden">
-                <p>Ha alcanzado el límite máximo de procesos permitidos.</p>
-            </div>
-            
+
+            <div id="process-grid" class="process-grid"></div>
+
             <button id="btn-add-process" class="ux-btn primary" onclick="showProcessForm()">
-                + Nuevo Proceso
+                + Añadir Proceso
             </button>
 
-            <div id="process-list" class="ux-list"></div>
+            <div id="process-capacity-warning" class="process-warning hidden">
+                Has alcanzado el número máximo de procesos compatibles con el PDF (30).
+            </div>
+
+            <div id="process-section-status" class="missing-summary hidden"></div>
+
+            <div id="process-form-container" class="process-form-panel hidden">
+                <h4 id="form-title">Registrar Nuevo Proceso</h4>
+                <div class="form-row">
+                    <input id="process-name-input" type="text" placeholder="Nombre del proceso">
+                    <div class="form-actions">
+                        <button class="btn-save" onclick="saveProcess()">Guardar</button>
+                        <button class="btn-cancel" onclick="hideProcessForm()">Cancelar</button>
+                    </div>
+                </div>
+            </div>
 
             <div class="ux-footer split">
-                <button class="ux-btn prev" onclick="navigateFlow('sec-initial')">← Anterior</button>
+                <button class="ux-btn prev" onclick="navigateFlow('sec-na')">← Anterior</button>
                 <button class="ux-btn next" onclick="navigateFlow('sec-export')">Siguiente →</button>
             </div>
         </section>
@@ -106,6 +145,8 @@
                 <h2>Exportar</h2>
                 <p class="ux-subtitle">Descargue JSON o genere el PDF compatible.</p>
             </div>
+
+            <div id="export-validation-status" class="na-section-card"></div>
 
             <div class="ux-card-grid">
                 <div class="ux-card" onclick="exportAsJSON()">
