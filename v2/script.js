@@ -723,7 +723,8 @@ function deleteProcessUI(id) {
 
 // 5. Renderizado de Tarjetas
 function renderProcesses() {
-    const grid = document.getElementById("process-grid");
+    //const grid = document.getElementById("process-grid");
+    const grid = document.getElementById("process-list");
     grid.innerHTML = "";
 
     const processCount = appState.processes.length;
@@ -733,8 +734,7 @@ function renderProcesses() {
     warning.classList.toggle("hidden", processCount < PDF_MAX_PROCESSES);
 
     // Hide Add Button when full
-    document.getElementById("btn-add-process").disabled =
-        processCount >= PDF_MAX_PROCESSES;
+    document.getElementById("btn-add-process").disabled = processCount >= PDF_MAX_PROCESSES;
 
     if (processCount === 0) {
         grid.innerHTML = `

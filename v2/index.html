@@ -84,12 +84,15 @@
                 <h2>Procesos</h2>
                 <p class="ux-subtitle">Defina los procesos y asigne los requisitos aplicables.</p>
             </div>
-
-            <div id="process-list" class="ux-list"></div>
-
-            <button id="btn-new-process" class="ux-btn primary" onclick="showProcessForm()">
+            <div id="process-capacity-warning" class="process-warning hidden">
+                <p>Ha alcanzado el límite máximo de procesos permitidos.</p>
+            </div>
+            
+            <button id="btn-add-process" class="ux-btn primary" onclick="showProcessForm()">
                 + Nuevo Proceso
             </button>
+
+            <div id="process-list" class="ux-list"></div>
 
             <div class="ux-footer split">
                 <button class="ux-btn prev" onclick="navigateFlow('sec-initial')">← Anterior</button>
@@ -125,6 +128,7 @@
     </div>
     
     <div id="app-toast" class="app-toast hidden"></div>
+
     <div id="new-requirements-modal" class="nm-overlay hidden">
         <div class="nm-modal-container">
             
