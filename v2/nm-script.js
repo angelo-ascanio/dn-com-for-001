@@ -341,46 +341,46 @@ function renderRightColumn(activeItem) {
 }
 
 function updateRow3() {
-    const bucketGrid = document.querySelector('.nm-bucket-grid');
-    bucketGrid.innerHTML = ''; 
+  const bucketGrid = document.querySelector('.nm-bucket-grid');
+  if (!bucketGrid) return;
 
-    for (const std of Object.keys(markedClauses)) {
-        const collapsedArr = getCollapsedClauses(std);
-        
-        if (collapsedArr.length > 0) {
-            const groupDiv = document.createElement('div');
-            groupDiv.className = 'nm-bucket-group';
-            
-            groupDiv.innerHTML = `
-                <div class="nm-bucket-group-title">
-                    <span>${std}</span>
-                    <span style="color:#888; font-weight:normal;">${collapsedArr.length} seleccionados</span>
-                </div>
-            `;
-            
-            const itemsContainer = document.createElement('div');
-            itemsContainer.className = 'nm-bucket-items';
+  bucketGrid.innerHTML = '';
 
-            collapsedArr.forEach(code => {
-                // Generate a bucket pill
-                const box = createPill({
-                    code: code,
-                    isBucket: true, // Applies specific bucket coloring
-                    buttonState: 'remove', // Always the 'X' button
-                    pillTitle: `Ver Cláusula`,
-                    buttonTitle: `Remover Cláusula`,
-                    onPillClick: () => jumpToClause(std, code),
-                    onButtonClick: () => toggleMark(code, std)
-                    //onButtonClick: () => unmarkClauseAndDescendants(code, std)
-                });
-                
-                itemsContainer.appendChild(box);
-            });
+  for (const std of Object.keys(markedClauses)) {
+    const collapsedArr = getCollapsedClauses(std);
+    if (!collapsedArr.length) continue;
 
-            groupDiv.appendChild(itemsContainer);
-            bucketGrid.appendChild(groupDiv);
-        }
-    }
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'nm-bucket-group';
+
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'nm-bucket-group-title';
+    titleDiv.textContent = std;
+
+    const itemsContainer = document.createElement('div');
+    itemsContainer.className = 'nm-bucket-items';
+
+    collapsedArr.forEach(code => {
+      const label = nm_CLAUSES_DATA[std]?.[code]?.title || '';
+
+      const box = createPill({
+        code,
+        label,
+        isBucket: true,
+        buttonState: 'remove',
+        pillTitle: 'Ver Cláusula',
+        buttonTitle: 'Remover Cláusula',
+        onPillClick: () => jumpToClause(std, code),
+        onButtonClick: () => toggleMark(code, std)
+      });
+
+      itemsContainer.appendChild(box);
+    });
+
+    groupDiv.appendChild(titleDiv);
+    groupDiv.appendChild(itemsContainer);
+    bucketGrid.appendChild(groupDiv);
+  }
 }
 
 // --- 3. STATE MUTATIONS ---
@@ -566,19 +566,31 @@ function createPill({
     // 2. Build the Left Side (.nm-pill-content)
     const pillContent = document.createElement('div');
     pillContent.className = 'nm-pill-content';
-    if (buttonState === 'none') pillContent.classList.add('nm-pill-content--full');
-    if (pillTitle) {
-        if (isActive) {
-            pillContent.title = "Visualización actual";
-        } else {
-            pillContent.title = pillTitle
-        }
-    };
 
-    let contentHTML = '';
-    if (code) contentHTML += `<span class="nm-pill-code">${code}</span>`;
-    if (label) contentHTML += `<span class="nm-pill-label">${label}</span>`;
-    pillContent.innerHTML = contentHTML;
+    if (buttonState === 'none') pillContent.classList.add('nm-pill-content--full');
+    
+    if (pillTitle) {
+        pillContent.title = isActive ? 'Visualización actual' : pillTitle;
+    }
+
+    if (code) {
+        const codeSpan = document.createElement('span');
+        codeSpan.className = 'nm-pill-code';
+        codeSpan.textContent = code;
+        pillContent.appendChild(codeSpan);
+    }
+
+    if (label && !isBucket) {
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'nm-pill-label';
+        labelSpan.textContent = label;
+        pillContent.appendChild(labelSpan);
+    }
+
+    // let contentHTML = '';
+    // if (code) contentHTML += `<span class="nm-pill-code">${code}</span>`;
+    // if (label) contentHTML += `<span class="nm-pill-label">${label}</span>`;
+    // pillContent.innerHTML = contentHTML;
 
     // Attach pill click directly to the left side
     if (onPillClick) {
@@ -626,12 +638,14 @@ function createPill({
  * Master UI updater for the Modal
  */
 function updateModalUI() {
-    const activeItem = currentPath.length > 0 
-            ? currentPath[currentPath.length - 1] 
-            : { code: 'Company Name', label: COMPANY_NAME };
-    renderNavStack();
-    renderOptionsArea(activeItem);
-    renderRightColumn(activeItem);
+  const activeItem = currentPath.length > 0
+    ? currentPath[currentPath.length - 1]
+    : { code: 'Company Name', label: COMPANY_NAME };
+
+  renderNavStack();
+  renderOptionsArea(activeItem);
+  renderRightColumn(activeItem);
+  updateRow3();
 }
 
 // --- INITIALIZE ---
@@ -645,3 +659,28 @@ const readingPan = document.querySelector('.nm-reading-pane');
 readingPan.addEventListener('contextmenu', (e) => {e.preventDefault();});
 readingPan.addEventListener('copy', (e) => {e.preventDefault();});
 readingPan.addEventListener('dragstart', (e) => {e.preventDefault();}, false);
+
+function hydrateModal({
+  processId,
+  title,
+  titleLocked,
+  lastPath,
+  flattenedReqs
+}) {
+  currentProcessId = processId;
+  isHydratingModal = true;
+
+  const titleInput = document.getElementById('nm-process-title');
+  titleInput.value = title;
+  titleInput.disabled = titleLocked;
+
+  COMPANY_NAME = appState.meta.organizationName || "Organización";
+  currentPath = Array.isArray(lastPath) ? [...lastPath] : [];
+
+  restoreModalSelections(flattenedReqs || []);
+
+  updateModalUI();
+  document.getElementById('new-requirements-modal').classList.remove('hidden');
+
+  isHydratingModal = false;
+}

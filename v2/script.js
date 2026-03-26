@@ -186,35 +186,32 @@ function startNewDocument() {
 
 // The logic to clean the app state (Currently disabled in invocation above)
 function resetAppState() {
-    // 1. Reset Data Object
-    appState.meta = {
-        organizationName: "",
-        reportDate: new Date().toISOString().split('T')[0]
-    };
-    appState.Standards.clear();
-    appState.standardDetails = {};
-    appState.processes = [];
-    appState.nonApplicableClauses = [];
-    appState.naLastPath = [];
+  appState.meta = {
+    organizationName: "",
+    reportDate: new Date().toISOString().split('T')[0]
+  };
 
-    // 2. Save empty state
-    saveAppState();
+  appState.Standards.clear();
+  appState.standardDetails = {};
+  appState.processes = [];
+  appState.nonApplicableClauses = [];
+  appState.lastPath = [];
+  appState.naLastPath = [];
 
-    // 3. Reset UI inputs
-    document.getElementById('input-org').value = "";
-    document.getElementById('input-date').value = appState.meta.reportDate;
-    
-    // Reset any active process selection
-    editingProcessId = null;
-    
-    // Uncheck all standards
-    document.querySelectorAll('#standards-checks input').forEach(el => el.checked = false);
-    
-    // Render empty lists
-    initStandardsUI();
-    renderProcesses();
-    updateSlimBar();
-    renderInitial();
+  resetModalTransientState();
+  saveAppState();
+
+  document.getElementById('input-org').value = "";
+  document.getElementById('input-date').value = appState.meta.reportDate;
+
+  editingProcessId = null;
+
+  document.querySelectorAll('#standards-checks input').forEach(el => el.checked = false);
+
+  initStandardsUI();
+  renderProcesses();
+  updateSlimBar();
+  renderInitial();
 }
 
 /**
@@ -1585,40 +1582,46 @@ function expandStoredClausesForStandard(std, storedReqs) {
 // --- AUTO-SAVE MODAL ARCHITECTURE ---
 
 let currentProcessId = null;
+const newProcess = {
+  id: Date.now(),
+  name: name,
+  assignedRequirements: [],
+  lastPath: []
+};
 
 function autoSaveModalState() {
-    if (!currentProcessId) return;
+  if (!currentProcessId || isHydratingModal) return;
 
-    let flattenedReqs = [];
+  let flattenedReqs = [];
 
-    for (const std in markedClauses) {
-        const collapsed = getCollapsedClauses(std);
-        collapsed.forEach(clause => {
-            flattenedReqs.push(`${std}\n${clause}`);
-        });
+  for (const std in markedClauses) {
+    const collapsed = getCollapsedClauses(std);
+    collapsed.forEach(clause => {
+      flattenedReqs.push(`${std}\n${clause}`);
+    });
+  }
+
+  if (currentProcessId === 'NA_MODE') {
+    appState.nonApplicableClauses = flattenedReqs;
+    appState.naLastPath = [...currentPath];
+    saveAppState();
+  } else {
+    const process = appState.processes.find(p => p.id === currentProcessId);
+    if (process) {
+      process.name = document.getElementById('nm-process-title').value;
+      process.assignedRequirements = flattenedReqs;
+      process.lastPath = [...currentPath];
+      saveAppState();
     }
+  }
 
-    if (currentProcessId === 'NA_MODE') {
-        appState.nonApplicableClauses = flattenedReqs;
-        appState.naLastPath = [...currentPath];
-        saveAppState();
-    } else {
-        const process = appState.processes.find(p => p.id === currentProcessId);
-        if (process) {
-            process.name = document.getElementById('nm-process-title').value;
-            process.assignedRequirements = flattenedReqs;
-            appState.lastPath = [...currentPath];
-            saveAppState();
-        }
-    }
-
-    updateSlimBar();
-    renderNaSummary();
-    renderCrossConflictBanner();
-    renderProcesses();
-    renderProcessesStatus();
-    renderExportStatus();
-    refreshMainNav();
+  updateSlimBar();
+  renderNaSummary();
+  renderCrossConflictBanner();
+  renderProcesses();
+  renderProcessesStatus();
+  renderExportStatus();
+  refreshMainNav();
 }
 
 function autoSaveProcessName() {
@@ -1626,57 +1629,52 @@ function autoSaveProcessName() {
 }
 
 function openAssignmentModal(procId) {
-    currentProcessId = procId;
-    const process = appState.processes.find(p => p.id === procId);
-    if (!process) return;
+  const process = appState.processes.find(p => p.id === procId);
+  if (!process) return;
 
-    const titleInput = document.getElementById('nm-process-title');
-    titleInput.value = process.name;
-    titleInput.disabled = false; // Allow editing process name
-    
-    markedClauses = {};
-    process.assignedRequirements.forEach(req => {
-        const [std, clause] = req.split('|');
-        if (!markedClauses[std]) markedClauses[std] = new Set();
-        markedClauses[std].add(clause);
-        markClauseAndAscendants(clause, std)
-    });
+  hydrateModal({
+    processId: procId,
+    title: process.name,
+    titleLocked: false,
+    lastPath: process.lastPath,
+    flattenedReqs: process.assignedRequirements
+  });
+}
 
-    COMPANY_NAME = appState.meta.organizationName || "Organización";
-    // Load last saved path, or default to root
-    currentPath = appState.lastPath ? [...appState.lastPath] : [];
-    updateModalUI();
-    document.getElementById('new-requirements-modal').classList.remove('hidden');
+function resetModalTransientState() {
+  currentPath = [];
+  markedClauses = {};
+  currentProcessId = null;
+}
+
+function restoreModalSelections(flattenedReqs = []) {
+  markedClauses = {};
+  flattenedReqs.forEach(req => {
+    const [std, clause] = req.split('\n');
+    markClauseAndAscendants(clause, std);
+  });
 }
 
 function openNaModal() {
-    currentProcessId = 'NA_MODE';
-    const titleInput = document.getElementById('nm-process-title');
-    titleInput.value = "Requisitos No Aplicables";
-    titleInput.disabled = true; // Lock Title
-    
-    markedClauses = {};
-    (appState.nonApplicableClauses || []).forEach(req => {
-        const [std, clause] = req.split('|');
-        if (!markedClauses[std]) markedClauses[std] = new Set();
-        markedClauses[std].add(clause);
-        markClauseAndAscendants(clause, std)
-    });
-
-    COMPANY_NAME = appState.meta.organizationName || "Organización";
-    currentPath = appState.naLastPath ? [...appState.naLastPath] : [];
-    updateModalUI();
-    document.getElementById('new-requirements-modal').classList.remove('hidden');
+  hydrateModal({
+    processId: 'NA_MODE',
+    title: "Requisitos No Aplicables",
+    titleLocked: true,
+    lastPath: appState.naLastPath,
+    flattenedReqs: appState.nonApplicableClauses
+  });
 }
 
 function closeModal() {
-    document.getElementById('new-requirements-modal').classList.add('hidden');
-    currentProcessId = null;
-    renderProcesses();
-    renderNaSummary();
-    renderCrossConflictBanner();
-    renderProcessesStatus();
-    renderExportStatus();
-    refreshMainNav();
+  document.getElementById('new-requirements-modal').classList.add('hidden');
 
+  resetModalTransientState();
+  updateModalUI();
+
+  renderProcesses();
+  renderNaSummary();
+  renderCrossConflictBanner();
+  renderProcessesStatus();
+  renderExportStatus();
+  refreshMainNav();
 }
