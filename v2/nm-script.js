@@ -347,8 +347,9 @@ function updateRow3() {
   bucketGrid.innerHTML = '';
 
   for (const std of Object.keys(markedClauses)) {
-    const collapsedArr = getCollapsedClauses(std);
-    if (!collapsedArr.length) continue;
+    const effectiveClauses = getEffectiveBucketClauses(std);
+
+    if (!effectiveClauses.length) continue;
 
     const groupDiv = document.createElement('div');
     groupDiv.className = 'nm-bucket-group';
@@ -360,7 +361,7 @@ function updateRow3() {
     const itemsContainer = document.createElement('div');
     itemsContainer.className = 'nm-bucket-items';
 
-    collapsedArr.forEach(code => {
+    effectiveClauses.forEach(code => {
       const label = nm_CLAUSES_DATA[std]?.[code]?.title || '';
 
       const box = createPill({
@@ -470,41 +471,45 @@ function toggleMark(clauseCode, std) {
  * and cascades up to automatically mark parents if all children are checked.
  */
 function markClauseAndAscendants(clauseCode, std) {
-    const stdData = nm_NORM_DATA[std] || {};
-    if (!markedClauses[std]) markedClauses[std] = new Set();
-    const state = markedClauses[std];
+  const stdData = nm_NORM_DATA[std] || {};
+  if (!markedClauses[std]) markedClauses[std] = new Set();
 
-    // 1. Mark the target clause
-    state.add(clauseCode);
+  const state = markedClauses[std];
 
-    // 2. Cascade DOWN: Mark all valid descendants
-    const descendants = stdData[clauseCode]?.descendants || [];
-    descendants.forEach(desc => {
-        if (isValidForStd(desc, std)) {
-            state.add(desc);
-        }
-    });
+  // 1. Mark the target clause itself
+  state.add(clauseCode);
 
-    // 3. Cascade UP: Check ancestors to see if they should now be collapsed (auto-marked)
-    const ancestors = stdData[clauseCode]?.ancestors || [];
-    ancestors.forEach(anc => {
-        if (isValidForStd(anc, std)) {
-            const children = stdData[anc].children || [];
-            
-            // Check if ALL valid children for this specific standard are marked
-            const allChildrenMarked = children
-                .filter(child => isValidForStd(child, std))
-                .every(child => state.has(child));
+  // 2. Cascade DOWN, but ONLY keep descendants allowed in the current mode
+  const descendants = stdData[clauseCode]?.descendants || [];
+  descendants.forEach(desc => {
+    if (isValidForStd(desc, std) && isClauseEffectivelyAllowed(std, desc)) {
+      state.add(desc);
+    }
+  });
 
-            if (allChildrenMarked) {
-                state.add(anc);
-            }
-        }
-    });
+  // 3. Cascade UP, but only if ALL direct children are marked
+  const ancestors = stdData[clauseCode]?.ancestors || [];
+  ancestors.forEach(anc => {
+    if (!isValidForStd(anc, std)) return;
 
-    updateRow3();
-    updateModalUI();
-    if (typeof autoSaveModalState === 'function') autoSaveModalState();
+    const children = stdData[anc]?.children || [];
+    const allChildrenMarked = children
+      .filter(child => isValidForStd(child, std))
+      .every(child => state.has(child));
+
+    if (allChildrenMarked) {
+      state.add(anc);
+    } else {
+      state.delete(anc);
+    }
+  });
+
+  updateRow3();
+  updateModalUI();
+
+  if (typeof autoSaveModalState === 'function') {
+    autoSaveModalState();
+  }
 }
 
 /**

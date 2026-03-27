@@ -1,3 +1,760 @@
+**** nm-script.js ****
+
+/**
+ * =================================================================================
+ * NEW MODAL SPA: PHASE 2 - STATE & MOCK NAVIGATION
+ * =================================================================================
+ */
+
+// --- 1. STATE & CONSTANTS ---
+let COMPANY_NAME = ""; 
+let currentPath = []; // Array to track drill-down e.g., [{code: "ISO 9001", label: "..."}, {code: "8", label: "..."}]
+//let nm_NORM_DATA = {};
+let nm_CLAUSES_DATA = {};
+let markedClauses = {};
+
+// DOM References
+const navStackContainer = document.querySelector('.nm-nav-stack');
+const optionsAreaContainer = document.querySelector('.nm-options-area');
+
+// --- DATABASE HELPERS ---
+
+/**
+ * Asynchronously loads both JSON files simultaneously.
+ */
+async function loadModalData() {
+    try {
+        // Fetch both files at the same time for performance
+        const [clausesRes] = await Promise.all([
+            fetch('nm-clauses.json')
+        ]);
+
+        nm_CLAUSES_DATA = await clausesRes.json();
+        
+        console.log("Modal Data loaded successfully.");
+        
+        // Once data is ready, render the UI!
+        updateModalUI();
+
+    } catch (error) {
+        console.error("Error loading modal data. Check file paths and server.", error);
+        document.querySelector('.nm-options-area').innerHTML = 
+            '<div class="nm-no-options" style="color:red;">Error cargando la base de datos.</div>';
+    }
+}
+
+/**
+ * Dynamically fetches immediate children based on the active item and standard.
+ */
+/**
+ * Dynamically fetches immediate children based on the active item and standard.
+ */
+function getRealChildren(activeItem) {
+    const children = [];
+
+    // 1. Root Level
+    if (activeItem.code === 'Company Name') {
+        const stdNames = {
+            'ISO 9001:2015': 'Sistema de Gestión de la Calidad',
+            'ISO 14001:2015': 'Sistema de Gestión Ambiental',
+            'ISO 45001:2018': 'Sistema de Gestión de Seguridad y Salud',
+            'ISO 22000:2018': 'Sistema de Gestión de Inocuidad Alimentaria',
+            'NTF 4073:2022': 'Sistema de Análisis de Peligros y Puntos Críticos de Control (HACCP)',
+            'ISO 27001:2022': 'Sistema de Gestión de Seguridad de la Información'
+        };
+        
+        Array.from(appState.Standards).forEach(std => {
+            children.push({ code: std, label: stdNames[std] || 'Sistema de Gestión' });
+        });
+        return children;
+    }
+
+    const currentStandard = currentPath[0].code; 
+    const stdData = nm_NORM_DATA[currentStandard] || {};
+
+    // 2. Level 1 Clauses (e.g., "4", "5")
+    if (activeItem.code === currentStandard) {
+        for (let key in stdData) {
+            if (!key.includes('.')) {
+                let title = nm_CLAUSES_DATA[currentStandard]?.[key]?.title || ``;
+                children.push({ code: key, label: title });
+            }
+        }
+    } 
+    // 3. Deeper Clauses (e.g., activeItem "4" -> children "4.1")
+    else {
+        const parentCode = activeItem.code;
+        const targetLevel = parentCode.split('.').length + 1;
+
+        for (let key in stdData) {
+            if (key.startsWith(parentCode + '.') && key.split('.').length === targetLevel) {
+                let title = nm_CLAUSES_DATA[currentStandard]?.[key]?.title || ``;
+                children.push({ code: key, label: title });
+            }
+        }
+    }
+
+    return children.sort((a, b) => a.code.localeCompare(b.code, undefined, {numeric: true}));
+}
+
+/**
+ * Recursive function to inject titles and parse {{keys}}
+ */
+function getExpandedContent(key, std, visited = new Set(), isRoot = true) {
+    if (visited.has(key)) return "";
+    visited.add(key);
+
+    const data = nm_CLAUSES_DATA[std]?.[key];
+    if (!data) return ""; 
+
+    let content = data.content || "";
+    let title = data.title || "";
+    let explicit = data.explicit;
+
+    // 1. Resolve children recursively
+    content = content.replace(/\{\{([\w.]+)\}\}/g, (match, childKey) => {
+        return getExpandedContent(childKey, std, new Set(visited), false);
+    });
+
+    // 2. Title and Number Logic
+    if (title) {
+        if (visited.size === 1) {
+            content = `<h2 class="main-clause-title"><label>${key}</label>${title}</h2>` + content;
+        } else {
+            content = `<div class="injected-title"><label>${key}</label>${title}</div>` + content;
+        }
+    } else if (explicit) {
+        let trimmedContent = content.trim();
+        const numberSpan = `<strong class="explicit-number">${key}</strong>`;
+        
+        // This regex matches the entire opening tag, including attributes (e.g., <div class="...">)
+        const tagMatch = trimmedContent.match(/^<([a-zA-Z0-9]+)\b[^>]*>/);
+
+        if (tagMatch) {
+            // Inject the number IMMEDIATELY after the opening tag
+            content = trimmedContent.replace(tagMatch[0], tagMatch[0] + numberSpan);
+        } else {
+            // Fallback if it's plain text
+            content = numberSpan + content;
+        }
+    }
+    if (isRoot) {
+        // This regex ensures we don't match 'debe' inside existing HTML tags/attributes
+        content = content.replace(/(?<!<[^>]*)\b(debe)\b(?![^<]*>)/gi, '<span class="debe">$1</span>');
+    }
+    return content;
+}
+
+/**
+ * Takes the raw selections for a standard and returns an optimized/collapsed array.
+ */
+function getCollapsedClauses(std, set = markedClauses[std]) {
+    if (!set || set.size === 0) return [];
+    
+    const state = set;
+    const collapsed = [];
+    const stdData = nm_NORM_DATA[std] || {};
+
+    state.forEach(code => {
+        const parent = stdData[code]?.parent;
+        
+        if (!parent || !state.has(parent)) {
+            collapsed.push(code);
+        }
+    });
+
+    return collapsed.sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
+}
+
+/**
+ * Helper to check if a clause belongs to the current standard.
+ * Crucial for cases where a child (e.g., 4.2.c) belongs to 14001 but not 9001.
+ */
+function isValidForStd(code, std) {
+    return nm_NORM_DATA[std] && nm_NORM_DATA[std][code] !== undefined;
+}
+
+/**
+ * Because our marking functions now explicitly add all descendants to the set,
+ * we no longer need a recursive loop to check ancestors. It's a simple O(1) lookup.
+ */
+function isClauseMarked(code, std) {
+    if (!std || !markedClauses[std]) return false;
+    return markedClauses[std].has(code);
+}
+
+// --- 2. CORE RENDER FUNCTIONS ---
+
+function renderNavStack() {
+    navStackContainer.innerHTML = ""; 
+
+    // 1. Render Fixed Base (Company Name)
+    const baseBox = createPill({
+        label: COMPANY_NAME,
+        isRoot: true,
+        isActive: currentPath.length === 0, // Bug fixed!
+        buttonState: 'none',
+        pillTitle: "Ver Norma(s)",
+        onPillClick: () => {
+            if (currentPath.length > 0) {
+                currentPath = [];
+                updateModalUI();
+            }
+        }
+    });
+    navStackContainer.appendChild(baseBox);
+
+    // 2. Loop through the current path
+    currentPath.forEach((step, index) => {
+        const isLast = index === currentPath.length - 1;
+        const currentStandard = currentPath.length > 0 ? currentPath[0].code : null;
+        const isMarked = isClauseMarked(step.code, currentStandard);
+        const showButton = currentStandard !== null && currentStandard !== step.code;
+
+        let buttonState = 'none';
+        let buttonTitle = '';
+        let buttonClick = null;
+
+        if (showButton) {
+            if (isMarked) {
+                buttonState = 'remove';
+                buttonTitle = 'Remover Cláusula';
+                buttonClick = () => {
+                    unmarkClauseAndDescendants(step.code, currentStandard);
+                };
+            } else {
+                const validation = canSelectClauseInCurrentMode(currentStandard, step.code);
+
+                if (validation.allowed) {
+                    buttonState = 'add';
+                    buttonTitle = 'Seleccionar Cláusula';
+                    buttonClick = () => {
+                        toggleMark(step.code, currentStandard);
+                    };
+                } else {
+                    buttonState = 'locked';
+                    buttonTitle = validation.message;
+                    buttonClick = () => {
+                        showToast(validation.message);
+                    };
+                }
+            }
+        }
+
+        const stepBox = createPill({
+            code: step.code,
+            label: step.label,
+            isActive: isLast,
+            buttonState: buttonState,
+            pillTitle: "Ver Cláusula",
+            buttonTitle: buttonTitle,
+            onPillClick: isLast ? null : () => popStack(index + 1),
+            onButtonClick: buttonClick,
+        });
+
+        navStackContainer.appendChild(stepBox);
+    });
+}
+
+function renderOptionsArea(activeItem) {
+    const optionsAreaContainer = document.querySelector('.nm-options-area');
+    optionsAreaContainer.innerHTML = ''; 
+
+    const currentStandard = currentPath.length > 0 ? currentPath[0].code : null;
+    const lastindex = currentPath.length>1 ? currentPath.length - 1 : 0;
+    const realChildren = getRealChildren(activeItem);
+    // if (currentPath[lastindex].code) {
+        
+    // }
+
+    
+    if (realChildren.length === 0) {
+        optionsAreaContainer.innerHTML = '<div class="nm-no-options">No hay sub-cláusulas.</div>';
+        return;
+    };
+
+    realChildren.forEach(child => {
+        const isMarked = isClauseMarked(child.code, currentStandard);
+        const showButton = currentStandard !== null && currentStandard !== child.code;
+
+        let buttonState = 'none';
+        let buttonTitle = '';
+        let buttonClick = null;
+
+        if (showButton) {
+            if (isMarked) {
+                buttonState = 'remove';
+                buttonTitle = 'Remover Cláusula';
+                buttonClick = () => {
+                    unmarkClauseAndDescendants(child.code, currentStandard);
+                };
+            } else {
+                const validation = canSelectClauseInCurrentMode(currentStandard, child.code);
+
+                if (validation.allowed) {
+                    buttonState = 'add';
+                    buttonTitle = 'Seleccionar Cláusula';
+                    buttonClick = () => {
+                        toggleMark(child.code, currentStandard);
+                    };
+                } else {
+                    buttonState = 'locked';
+                    buttonTitle = validation.message;
+                    buttonClick = () => {
+                        showToast(validation.message);
+                    };
+                }
+            }
+        }
+
+        const childBox = createPill({
+            code: child.code,
+            label: child.label,
+            buttonState: buttonState,
+            pillTitle: showButton ? "Ver Cláusula" : "Ver Norma",
+            buttonTitle: buttonTitle,
+            onPillClick: () => drillDown(child),
+            onButtonClick: buttonClick,
+        });
+
+        optionsAreaContainer.appendChild(childBox);
+    });
+}
+
+function renderRightColumn(activeItem) {
+    const readingPane = document.querySelector('.nm-reading-pane');
+
+    // If path is empty, we are at the Root level. No text to show yet.
+    if (currentPath.length === 0) {
+        readingPane.innerHTML = `<div class="nm-pane-placeholder"><p>Seleccione una norma para comenzar.</p></div>`;
+        return;
+    }
+
+    const currentStandard = currentPath[0].code; // Always index 0
+
+    const contentHtml = getExpandedContent(activeItem.code, currentStandard);
+
+    if (contentHtml) {
+        readingPane.innerHTML = contentHtml;
+    } else {
+        readingPane.innerHTML = `<div class="nm-pane-placeholder"><p>Contenido no disponible para ${activeItem.code}.</p></div>`;
+    }
+}
+
+function updateRow3() {
+  const bucketGrid = document.querySelector('.nm-bucket-grid');
+  if (!bucketGrid) return;
+
+  bucketGrid.innerHTML = '';
+
+  for (const std of Object.keys(markedClauses)) {
+    const effectiveClauses = getEffectiveBucketClauses(std);
+
+    if (!effectiveClauses.length) continue;
+
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'nm-bucket-group';
+
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'nm-bucket-group-title';
+    titleDiv.textContent = std;
+
+    const itemsContainer = document.createElement('div');
+    itemsContainer.className = 'nm-bucket-items';
+
+    effectiveClauses.forEach(code => {
+      const label = nm_CLAUSES_DATA[std]?.[code]?.title || '';
+
+      const box = createPill({
+        code,
+        label,
+        isBucket: true,
+        buttonState: 'remove',
+        pillTitle: 'Ver Cláusula',
+        buttonTitle: 'Remover Cláusula',
+        onPillClick: () => jumpToClause(std, code),
+        onButtonClick: () => toggleMark(code, std)
+      });
+
+      itemsContainer.appendChild(box);
+    });
+
+    groupDiv.appendChild(titleDiv);
+    groupDiv.appendChild(itemsContainer);
+    bucketGrid.appendChild(groupDiv);
+  }
+}
+
+// --- 3. STATE MUTATIONS ---
+
+/**
+ * Pushes a new item to the stack and updates UI
+ */
+function drillDown(item) {
+    currentPath.push(item);
+    updateModalUI();
+    if (typeof autoSaveModalState === 'function') autoSaveModalState();
+}
+
+/**
+ * Pops the stack back to a specific index.
+ * Example: if path is ['ISO', '8', '8.3'] and user clicks 'X' on '8' (index 1), 
+ * we slice the array to keep only ['ISO'] (length 1).
+ */
+function popStack(index) {
+    currentPath = currentPath.slice(0, index);
+    updateModalUI();
+    if (typeof autoSaveModalState === 'function') autoSaveModalState();
+}
+
+/**
+ * Automatically builds the navigation path to jump directly to a selected clause
+ */
+function jumpToClause(std, code) {
+    const newPath = [];
+    
+    // 1. First item is always the Standard
+    newPath.push({ code: std, label: std });
+
+    // 2. Trace and add ancestors from top to bottom
+    const stdData = nm_NORM_DATA[std] || {};
+    if (stdData[code] && stdData[code].ancestors) {
+        // Our ancestors array is bottom-up (parent, grandparent), so we reverse it
+        const ancestors = [...stdData[code].ancestors].reverse();
+        
+        ancestors.forEach(anc => {
+            let title = nm_CLAUSES_DATA[std]?.[anc]?.title || `Cláusula ${anc}`;
+            newPath.push({ code: anc, label: title });
+        });
+    }
+
+    // 3. Add the item itself at the end of the path
+    let itemTitle = nm_CLAUSES_DATA[std]?.[code]?.title || `Cláusula ${code}`;
+    newPath.push({ code: code, label: itemTitle });
+
+    // 4. Set the path and re-render
+    currentPath = newPath;
+    updateModalUI();
+    
+    // UX Touch for Mobile: Auto-scroll down to the reading pane
+    if (window.innerWidth <= 768) {
+        document.querySelector('.nm-right-col').scrollIntoView({ behavior: 'smooth' });
+    }
+    if (typeof autoSaveModalState === 'function') autoSaveModalState();
+}
+
+/**
+ * Master toggle switch. Routes to explicit mark or unmark logic.
+ */
+function toggleMark(clauseCode, std) {
+    if (!markedClauses[std]) markedClauses[std] = new Set();
+
+    // already selected in current mode => allow removing
+    if (isClauseMarked(clauseCode, std)) {
+        unmarkClauseAndDescendants(clauseCode, std);
+        return;
+    }
+
+    const validation = canSelectClauseInCurrentMode(std, clauseCode);
+
+    if (!validation.allowed) {
+        showToast(validation.message);
+        return;
+    }
+
+    markClauseAndAscendants(clauseCode, std);
+
+    if (typeof autoSaveModalState === 'function') autoSaveModalState();
+}
+
+/**
+ * NEW HELPER: Marks the clause, cascades down to all descendants, 
+ * and cascades up to automatically mark parents if all children are checked.
+ */
+function markClauseAndAscendants(clauseCode, std) {
+  const stdData = nm_NORM_DATA[std] || {};
+  if (!markedClauses[std]) markedClauses[std] = new Set();
+
+  const state = markedClauses[std];
+
+  // 1. Mark the target clause itself
+  state.add(clauseCode);
+
+  // 2. Cascade DOWN, but ONLY keep descendants allowed in the current mode
+  const descendants = stdData[clauseCode]?.descendants || [];
+  descendants.forEach(desc => {
+    if (isValidForStd(desc, std) && isClauseEffectivelyAllowed(std, desc)) {
+      state.add(desc);
+    }
+  });
+
+  // 3. Cascade UP, but only if ALL direct children are marked
+  const ancestors = stdData[clauseCode]?.ancestors || [];
+  ancestors.forEach(anc => {
+    if (!isValidForStd(anc, std)) return;
+
+    const children = stdData[anc]?.children || [];
+    const allChildrenMarked = children
+      .filter(child => isValidForStd(child, std))
+      .every(child => state.has(child));
+
+    if (allChildrenMarked) {
+      state.add(anc);
+    } else {
+      state.delete(anc);
+    }
+  });
+
+  updateRow3();
+  updateModalUI();
+
+  if (typeof autoSaveModalState === 'function') {
+    autoSaveModalState();
+  }
+}
+
+/**
+ * Unmarks the clause, cascades down to unmark all descendants, 
+ * and cascades up to unmark ancestors (breaking the collapse).
+ */
+function unmarkClauseAndDescendants(clauseCode, std) {
+    const stdData = nm_NORM_DATA[std] || {};
+    if (!markedClauses[std]) return;
+    const state = markedClauses[std];
+    // 1. Unmark the target clause
+    state.delete(clauseCode);
+    
+    // 2. Cascade DOWN: Unmark all descendants
+    const descendants = stdData[clauseCode]?.descendants || [];
+    descendants.forEach(desc => {
+        state.delete(desc);
+    });
+
+    // 3. Cascade UP: Unmark all ancestors
+    // If a descendant is missing, the ancestor can no longer be fully marked/collapsed.
+    const ancestors = stdData[clauseCode]?.ancestors || [];
+    ancestors.forEach(anc => {
+        state.delete(anc);
+    });
+
+    updateRow3();
+    updateModalUI();
+    if (typeof autoSaveModalState === 'function') autoSaveModalState();
+}
+
+/**
+ * Factory function to generate a unified Pill component.
+ */
+/**
+ * Factory function to generate a unified Pill component with split-hover zones.
+ */
+function createPill({ 
+    code = '', 
+    label = '', 
+    isRoot = false, 
+    isActive = false, 
+    isBucket = false, 
+    buttonState = 'none', // 'add', 'remove', or 'none'
+    pillTitle = '', 
+    buttonTitle = '', 
+    onPillClick = null, 
+    onButtonClick = null 
+}) {
+    // 1. Create Wrapper
+    const pill = document.createElement('div');
+    pill.className = 'nm-pill';
+    
+    // Apply state modifiers to wrapper
+    if (isRoot) pill.classList.add('nm-pill--root');
+    if (isActive) pill.classList.add('nm-pill--active');
+    if (isBucket) pill.classList.add('nm-pill--bucket');
+
+    // 2. Build the Left Side (.nm-pill-content)
+    const pillContent = document.createElement('div');
+    pillContent.className = 'nm-pill-content';
+
+    if (buttonState === 'none') pillContent.classList.add('nm-pill-content--full');
+    
+    if (pillTitle) {
+        pillContent.title = isActive ? 'Visualización actual' : pillTitle;
+    }
+
+    if (code) {
+        const codeSpan = document.createElement('span');
+        codeSpan.className = 'nm-pill-code';
+        codeSpan.textContent = code;
+        pillContent.appendChild(codeSpan);
+    }
+
+    if (label && !isBucket) {
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'nm-pill-label';
+        labelSpan.textContent = label;
+        pillContent.appendChild(labelSpan);
+    }
+
+    // let contentHTML = '';
+    // if (code) contentHTML += `<span class="nm-pill-code">${code}</span>`;
+    // if (label) contentHTML += `<span class="nm-pill-label">${label}</span>`;
+    // pillContent.innerHTML = contentHTML;
+
+    // Attach pill click directly to the left side
+    if (onPillClick) {
+        pillContent.onclick = onPillClick;
+    }
+    
+    pill.appendChild(pillContent);
+
+    // 3. Build the Right Side (.nm-pill-btn)
+    if (buttonState !== 'none') {
+        const isRemove = buttonState === 'remove';
+        const isLocked = buttonState === 'locked';
+
+        let btnClass = 'nm-pill-btn';
+        let btnIcon = '+';
+
+        if (isRemove) {
+            btnClass = 'nm-pill-btn nm-pill-btn--remove';
+            btnIcon = '×';
+        } else if (isLocked) {
+            btnClass = 'nm-pill-btn nm-pill-btn--locked';
+            btnIcon = '🔒';
+        }
+
+        
+        const btn = document.createElement('button');
+        btn.className = btnClass;
+        btn.title = buttonTitle;
+        btn.innerHTML = btnIcon;
+
+        // Attach button click
+        if (onButtonClick) {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                onButtonClick(e);
+            };
+        }
+        pill.appendChild(btn);
+    }
+
+    return pill;
+}
+
+/**
+ * Master UI updater for the Modal
+ */
+function updateModalUI() {
+  const activeItem = currentPath.length > 0
+    ? currentPath[currentPath.length - 1]
+    : { code: 'Company Name', label: COMPANY_NAME };
+
+  renderNavStack();
+  renderOptionsArea(activeItem);
+  renderRightColumn(activeItem);
+  updateRow3();
+}
+
+// --- INITIALIZE ---
+document.addEventListener('DOMContentLoaded', () => {
+    loadModalData();
+    updateModalUI();
+});
+
+// Add this inside your initialization or DOMContentLoaded block
+const readingPan = document.querySelector('.nm-reading-pane');
+readingPan.addEventListener('contextmenu', (e) => {e.preventDefault();});
+readingPan.addEventListener('copy', (e) => {e.preventDefault();});
+readingPan.addEventListener('dragstart', (e) => {e.preventDefault();}, false);
+
+function hydrateModal({
+  processId,
+  title,
+  titleLocked,
+  lastPath,
+  flattenedReqs
+}) {
+  currentProcessId = processId;
+  isHydratingModal = true;
+
+  const titleInput = document.getElementById('nm-process-title');
+  titleInput.value = title;
+  titleInput.disabled = titleLocked;
+
+  COMPANY_NAME = appState.meta.organizationName || "Organización";
+  currentPath = Array.isArray(lastPath) ? [...lastPath] : [];
+
+  restoreModalSelections(flattenedReqs || []);
+
+  updateModalUI();
+  document.getElementById('new-requirements-modal').classList.remove('hidden');
+
+  isHydratingModal = false;
+}
+**** /nm-script.js ****
+
+**** phase1-unify.js ****
+/* ------------------------------------------------------
+   PHASE 1 — UX UNIFICATION SCRIPT
+------------------------------------------------------ */
+
+function unifyNavHighlight(targetId) {
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('current');
+    });
+
+    const target = document.getElementById('nav-' + targetId);
+    if (target) target.classList.add('current');
+}
+
+function showValid(el) {
+    el.classList.remove('invalid');
+    el.classList.add('valid');
+}
+
+function showInvalid(el) {
+    el.classList.remove('valid');
+    el.classList.add('invalid');
+}
+
+/* Override your navigateFlow to include unified UX */
+const _oldNavigateFlow = typeof navigateFlow !== "undefined" ? navigateFlow : null;
+navigateFlow = function (targetId) {
+    if (_oldNavigateFlow) _oldNavigateFlow(targetId);
+
+    const sec = document.getElementById(targetId);
+    if (sec) sec.classList.add('fade-in');
+};
+
+/* Improved validation visuals */
+function updateInitialStepVisuals(isValid) {
+    const nextBtn = document.getElementById('btn-next-initial');
+
+    if (isValid) {
+        nextBtn.disabled = false;
+        showValid(nextBtn);
+    } else {
+        nextBtn.disabled = true;
+        showInvalid(nextBtn);
+    }
+}
+
+/* Hook into your existing validateStep */
+const _oldValidateStep = validateStep;
+validateStep = function (stepId) {
+    const result = _oldValidateStep(stepId);
+
+    if (stepId === "sec-initial") {
+        updateInitialStepVisuals(result);
+    }
+
+    refreshMainNav();
+    renderExportStatus();
+
+    return result;
+};
+**** /phase1-unify.js ****
+
+**** script.js ****
 /**
  * =================================================================================
  * FASE 1: ARQUITECTURA DE DATOS Y ESTADO GLOBAL (EL CEREBRO)
@@ -186,7 +943,6 @@ function startNewDocument() {
 
 // The logic to clean the app state (Currently disabled in invocation above)
 function resetAppState() {
-  // 1. Reset data
   appState.meta = {
     organizationName: "",
     reportDate: new Date().toISOString().split('T')[0]
@@ -196,38 +952,23 @@ function resetAppState() {
   appState.standardDetails = {};
   appState.processes = [];
   appState.nonApplicableClauses = [];
-  appState.nonApplicableIntent = [];
   appState.lastPath = [];
   appState.naLastPath = [];
 
-  // 2. Reset transient modal state
-  markedClauses = {};
-  currentPath = [];
-  currentProcessId = null;
-
-  // 3. Persist
+  resetModalTransientState();
   saveAppState();
 
-  // 4. Reset visible inputs
   document.getElementById('input-org').value = "";
   document.getElementById('input-date').value = appState.meta.reportDate;
 
   editingProcessId = null;
 
-  document.querySelectorAll('#standards-checks input').forEach(el => {
-    el.checked = false;
-  });
+  document.querySelectorAll('#standards-checks input').forEach(el => el.checked = false);
 
-  // 5. Re-render EVERYTHING that can show stale data
   initStandardsUI();
-  renderInitial();
   renderProcesses();
-  renderProcessesStatus();
-  renderNaSummary();
-  renderCrossConflictBanner();
-  renderExportStatus();
   updateSlimBar();
-  refreshMainNav();
+  renderInitial();
 }
 
 /**
@@ -753,24 +1494,33 @@ function hideProcessForm() {
 
 // 3. Guardar (Create/Update)
 function saveProcess() {
-  const nameInput = document.getElementById('process-name-input');
-  const name = nameInput.value.trim();
+    const nameInput = document.getElementById('process-name-input');
+    const name = nameInput.value.trim();
 
-  if (!editingProcessId && appState.processes.length >= PDF_MAX_PROCESSES) {
-    alert("No puedes añadir más procesos. El PDF solo admite 30.");
-    return;
-  }
+    if (!editingProcessId && appState.processes.length >= PDF_MAX_PROCESSES) {
+        alert("No puedes añadir más procesos. El PDF solo admite 30.");
+        return;
+    }
 
-  if (!name) {
-    alert("El nombre del proceso no puede estar vacío.");
-    return;
-  }
+    if (!name) {
+        alert("El nombre del proceso no puede estar vacío.");
+        return;
+    }
 
-  if (editingProcessId) {
-    // UPDATE
-    const process = appState.processes.find(p => p.id === editingProcessId);
-    if (process) {
-      process.name = name;
+    if (editingProcessId) {
+        // UPDATE: Buscamos el proceso y actualizamos solo el nombre
+        const process = appState.processes.find(p => p.id === editingProcessId);
+        if (process) {
+            process.name = name;
+        }
+    } else {
+        // CREATE: Nuevo objeto
+        const newProcess = {
+            id: Date.now(), // ID único basado en tiempo
+            name: name,
+            assignedRequirements: [] // Comienza vacío
+        };
+        appState.processes.push(newProcess);
     }
 
     saveAppState();
@@ -779,29 +1529,7 @@ function saveProcess() {
     renderProcessesStatus();
     renderExportStatus();
     refreshMainNav();
-    return;
-  }
 
-  // CREATE
-  const newProcess = {
-    id: Date.now(),
-    name: name,
-    modalSelections: [],       // intent state
-    assignedRequirements: [],  // effective state
-    lastPath: []
-  };
-
-  appState.processes.push(newProcess);
-
-  saveAppState();
-  hideProcessForm();
-  renderProcesses();
-  renderProcessesStatus();
-  renderExportStatus();
-  refreshMainNav();
-
-  // Auto-open assignment modal for the newly created process
-  openAssignmentModal(newProcess.id);
 }
 
 // 4. Eliminar
@@ -1831,3 +2559,5 @@ function closeModal() {
   renderExportStatus();
   refreshMainNav();
 }
+
+**** /script.js ****
