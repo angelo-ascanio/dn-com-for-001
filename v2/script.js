@@ -154,17 +154,18 @@ function initNavigation() {
 }
 
 const appState = {
-    meta: {
-        organizationName: "",
-        reportDate: new Date().toISOString().split('T')[0]
-    },
-    Standards: new Set(),
-    standardDetails: {}, // Stores { type: "Estudio", cert: "9001e-..." }
-    processes: [], // { id, name, assignedRequirements: [], lastPath: [] }
-    nonApplicableClauses: [],
-    lastPath: [],
-    naLastPath: [] ,
-    navigate: ""
+  meta: {
+    organizationName: "",
+    reportDate: new Date().toISOString().split('T')[0]
+  },
+  Standards: new Set(),
+  standardDetails: {},
+  processes: [],
+  nonApplicableClauses: [], // effective NA result
+  nonApplicableIntent: [],  // intent for NA modal restore
+  lastPath: [],
+  naLastPath: [],
+  navigate: ""
 };
 
 // Variable para controlar si estamos creando o editando un proceso (Fase 4.2)
@@ -1148,43 +1149,51 @@ let tempSelectedClauses = new Set(); // Formato: "Standard|Clause"
  * =================================================================================
  */
 function saveAppState() {
-    const stateToSave = {
-        meta: appState.meta,
-        standards: Array.from(appState.Standards), 
-        standardDetails: appState.standardDetails,
-        processes: appState.processes,
-        nonApplicableClauses: appState.nonApplicableClauses,
-        lastPath: appState.lastPath,
-        naLastPath: appState.naLastPath,
-        navigate: appState.navigate
-    };
-    localStorage.setItem('isoSpaState', JSON.stringify(stateToSave));
+  const stateToSave = {
+    meta: appState.meta,
+    standards: Array.from(appState.Standards),
+    standardDetails: appState.standardDetails,
+    processes: appState.processes,
+    nonApplicableClauses: appState.nonApplicableClauses,
+    nonApplicableIntent: appState.nonApplicableIntent,
+    lastPath: appState.lastPath,
+    naLastPath: appState.naLastPath,
+    navigate: appState.navigate
+  };
+
+  localStorage.setItem('isoSpaState', JSON.stringify(stateToSave));
 }
 
 function loadAppState() {
-    const saved = localStorage.getItem('isoSpaState');
-    if (saved) {
-        try {
-            const parsed = JSON.parse(saved);
-            appState.meta = parsed.meta || appState.meta;
-            appState.Standards = new Set(parsed.standards || []);
-            appState.standardDetails = parsed.standardDetails || {};
-            appState.processes = parsed.processes || [];
-            appState.nonApplicableClauses = parsed.nonApplicableClauses || [];
-            appState.lastPath = parsed.lastPath || [];
-            appState.naLastPath = parsed.naLastPath || [];
-            appState.navigate = parsed.navigate || 'sec-load';
-        } catch (e) {
-            console.error("Error cargando estado:", e);
-        }
+  const saved = localStorage.getItem('isoSpaState');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+
+      appState.meta = parsed.meta ?? appState.meta;
+      appState.Standards = new Set(parsed.standards ?? []);
+      appState.standardDetails = parsed.standardDetails ?? {};
+      appState.processes = (parsed.processes ?? []).map(proc => ({
+        ...proc,
+        modalSelections: proc.modalSelections ?? [],
+        assignedRequirements: proc.assignedRequirements ?? [],
+        lastPath: proc.lastPath ?? []
+      }));
+      appState.nonApplicableClauses = parsed.nonApplicableClauses ?? [];
+      appState.nonApplicableIntent = parsed.nonApplicableIntent ?? [];
+      appState.lastPath = parsed.lastPath ?? [];
+      appState.naLastPath = parsed.naLastPath ?? [];
+      appState.navigate = parsed.navigate ?? 'sec-load';
+    } catch (e) {
+      console.error("Error cargando estado:", e);
     }
+  }
 }
 
 /* ======================================================
    PHASE 3 — CROSS VALIDATION ENGINE
    Process <-> Non Applicable (two-way, hierarchical)
 ====================================================== */
-
 
 function getCurrentMode() {
     return currentProcessId === 'NA_MODE' ? 'na' : 'process';
@@ -1316,6 +1325,10 @@ function canSelectClauseInCurrentMode(std, clauseCode) {
 function isClauseEffectivelyAllowed(std, clauseCode) {
   const validation = canSelectClauseInCurrentMode(std, clauseCode);
   return validation.allowed;
+}
+
+function getIntentClauses(std, set = markedClauses[std]) {
+  return getMarkedRoots(std, set);
 }
 
 /**
@@ -1739,25 +1752,33 @@ const newProcess = {
 function autoSaveModalState() {
   if (!currentProcessId || isHydratingModal) return;
 
-  let flattenedReqs = [];
+  let intentReqs = [];
+  let effectiveReqs = [];
 
-    for (const std in markedClauses) {
-        const effectiveClauses = getEffectiveBucketClauses(std);
+  for (const std in markedClauses) {
+    const intentClauses = getIntentClauses(std);
+    const effectiveClauses = getEffectiveBucketClauses(std);
 
-        effectiveClauses.forEach(clause => {
-            flattenedReqs.push(`${std}\n${clause}`);
-        });
-    }
+    intentClauses.forEach(clause => {
+      intentReqs.push(`${std}\n${clause}`);
+    });
+
+    effectiveClauses.forEach(clause => {
+      effectiveReqs.push(`${std}\n${clause}`);
+    });
+  }
 
   if (currentProcessId === 'NA_MODE') {
-    appState.nonApplicableClauses = flattenedReqs;
+    appState.nonApplicableIntent = intentReqs;
+    appState.nonApplicableClauses = effectiveReqs;
     appState.naLastPath = [...currentPath];
     saveAppState();
   } else {
     const process = appState.processes.find(p => p.id === currentProcessId);
     if (process) {
       process.name = document.getElementById('nm-process-title').value;
-      process.assignedRequirements = flattenedReqs;
+      process.modalSelections = intentReqs;
+      process.assignedRequirements = effectiveReqs;
       process.lastPath = [...currentPath];
       saveAppState();
     }
@@ -1785,7 +1806,9 @@ function openAssignmentModal(procId) {
     title: process.name,
     titleLocked: false,
     lastPath: process.lastPath,
-    flattenedReqs: process.assignedRequirements
+    flattenedReqs: process.modalSelections?.length
+      ? process.modalSelections
+      : process.assignedRequirements
   });
 }
 
@@ -1814,7 +1837,9 @@ function openNaModal() {
     title: "Requisitos No Aplicables",
     titleLocked: true,
     lastPath: appState.naLastPath,
-    flattenedReqs: appState.nonApplicableClauses
+    flattenedReqs: appState.nonApplicableIntent?.length
+      ? appState.nonApplicableIntent
+      : appState.nonApplicableClauses
   });
 }
 
