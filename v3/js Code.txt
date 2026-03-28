@@ -1,5 +1,4 @@
 **** nm-script.js ****
-
 /**
  * =================================================================================
  * NEW MODAL SPA: PHASE 2 - STATE & MOCK NAVIGATION
@@ -910,6 +909,7 @@ function initNavigation() {
     navigateFlow(appState.navigate || 'sec-load');
 }
 
+// Core SPA State Schema
 const appState = {
   meta: {
     organizationName: "",
@@ -917,18 +917,25 @@ const appState = {
   },
   Standards: new Set(),
   standardDetails: {},
-  processes: [],
-  nonApplicableClauses: [], // effective NA result
-  nonApplicableIntent: [],  // intent for NA modal restore
+  
+  // Processes: Will utilize the Shared Workspace logic
+  processes: [], 
+  
+  // Non-Applicable: Treated as a dedicated, system-level workspace
+  nonApplicableClauses: [], // Effective NA result
+  nonApplicableIntent: [],  // Intent for NA modal restore
+  
+  // Navigation & UI Memory
   lastPath: [],
   naLastPath: [],
-  navigate: ""
+  navigate: "sec-load"
 };
 
-// Variable para controlar si estamos creando o editando un proceso (Fase 4.2)
-let editingProcessId = null; 
-// Variable para caché de búsqueda (Puente entre Fase 4.1 y el Buscador)
-let SEARCH_INDEX = []; 
+// Variable para controlar si estamos creando o editando un proceso
+let editingProcessId = null;
+
+// Variable para caché de búsqueda (Puente Modal)
+let SEARCH_INDEX = [];
 
 /* =================================================================================
  * FASE 0: INICIALIZACIÓN (LOGIC) [cite: 17, 19]
@@ -942,14 +949,13 @@ function startNewDocument() {
     refreshMainNav();
 }
 
-// The logic to clean the app state (Currently disabled in invocation above)
+// The logic to clean the app state to absolute zero
 function resetAppState() {
-  // 1. Reset data
+  // 1. Reset data to factory defaults
   appState.meta = {
     organizationName: "",
     reportDate: new Date().toISOString().split('T')[0]
   };
-
   appState.Standards.clear();
   appState.standardDetails = {};
   appState.processes = [];
@@ -957,26 +963,28 @@ function resetAppState() {
   appState.nonApplicableIntent = [];
   appState.lastPath = [];
   appState.naLastPath = [];
+  appState.navigate = "sec-initial";
 
   // 2. Reset transient modal state
-  markedClauses = {};
-  currentPath = [];
-  currentProcessId = null;
+  if (typeof markedClauses !== 'undefined') markedClauses = {};
+  if (typeof currentPath !== 'undefined') currentPath = [];
+  if (typeof currentProcessId !== 'undefined') currentProcessId = null;
+  editingProcessId = null;
 
-  // 3. Persist
+  // 3. Save wiped state
   saveAppState();
 
-  // 4. Reset visible inputs
-  document.getElementById('input-org').value = "";
-  document.getElementById('input-date').value = appState.meta.reportDate;
-
-  editingProcessId = null;
+  // 4. Reset visible DOM inputs safely
+  const orgInput = document.getElementById('input-org');
+  const dateInput = document.getElementById('input-date');
+  if (orgInput) orgInput.value = "";
+  if (dateInput) dateInput.value = appState.meta.reportDate;
 
   document.querySelectorAll('#standards-checks input').forEach(el => {
     el.checked = false;
   });
 
-  // 5. Re-render EVERYTHING that can show stale data
+  // 5. Re-render UI layer
   initStandardsUI();
   renderInitial();
   renderProcesses();

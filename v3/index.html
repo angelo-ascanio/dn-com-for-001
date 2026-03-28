@@ -28,54 +28,63 @@
 
         <!-- SECTION: LOAD -->
         <section id="sec-load" class="spa-section ux-section hidden">
-            <div class="ux-header">
-                <h2>Bienvenido</h2>
-                <p class="ux-subtitle">Seleccione cómo desea comenzar.</p>
-            </div>
-
-            <div class="ux-card-grid">
-                <div class="ux-card" onclick="startNewDocument()">
-                    <span class="ux-card-icon">🆕</span>
-                    <h3>Nuevo Documento</h3>
-                    <p>Comenzar desde cero.</p>
+            <div class="workspace-card">
+                <div class="ux-header">
+                    <h2>Bienvenido</h2>
+                    <p class="ux-subtitle">Seleccione cómo desea comenzar su proceso de auditoría.</p>
                 </div>
 
-                <div class="ux-card" onclick="handleImportJSON()">
-                    <span class="ux-card-icon">📄</span>
-                    <h3>Importar JSON</h3>
-                    <p>Cargar una sesión guardada previamente.</p>
-                </div>
+                <div class="ux-card-grid">
+                    <div class="ux-card" onclick="startNewDocument()">
+                        <span class="ux-card-icon">🆕</span>
+                        <h3>Nuevo Documento</h3>
+                        <p>Comenzar la asignación desde cero.</p>
+                    </div>
 
-                <div class="ux-card" onclick="handleImportPDF()">
-                    <span class="ux-card-icon">📑</span>
-                    <h3>Importar PDF</h3>
-                    <p>Leer datos desde DN‑COM‑FOR‑001.</p>
+                    <div class="ux-card" onclick="handleImportJSON()">
+                        <span class="ux-card-icon">📄</span>
+                        <h3>Importar JSON</h3>
+                        <p>Cargar una sesión de trabajo anterior.</p>
+                    </div>
+
+                    <div class="ux-card disabled" onclick="handleImportPDF()">
+                        <span class="ux-card-icon">📑</span>
+                        <h3>Importar PDF</h3>
+                        <p>Próximamente: Leer desde DN‑COM‑FOR‑001.</p>
+                    </div>
                 </div>
             </div>
         </section>
 
         <!-- SECTION: INITIAL INFORMATION -->
         <section id="sec-initial" class="spa-section ux-section hidden">
-            <div class="ux-header">
-                <h2>Información General</h2>
-                <p class="ux-subtitle">Complete la información básica de la organización.</p>
-            </div>
+            <div class="workspace-card">
+                <div class="ux-header">
+                    <h2>Configuración Inicial</h2>
+                    <p class="ux-subtitle">Complete la información de la organización y defina las normas a auditar.</p>
+                </div>
 
-            <div class="ux-form">
-                <label>Organización</label>
-                <input id="input-org" type="text" placeholder="Nombre de la organización">
+                <div class="row-compact">
+                    <div class="half form-group">
+                        <label for="input-org">Organización</label>
+                        <input id="input-org" type="text" placeholder="Ej. Empresa C.A.">
+                    </div>
+                    <div class="half form-group">
+                        <label for="input-date">Fecha del Reporte</label>
+                        <input id="input-date" type="date">
+                    </div>
+                </div>
 
-                <label>Fecha</label>
-                <input id="input-date" type="date">
+                <div class="form-group" style="border-top: none; margin-top: 15px;">
+                    <label>Esquemas de Certificación Activos</label>
+                    <p class="helper-text" style="margin-bottom: 10px; font-weight: normal;">Haga clic en las normas que aplican para este documento. Despliegue los detalles para configurar el tipo de auditoría.</p>
+                    <div id="standards-checks"></div> </div>
 
-                <label>Esquemas de Certificación</label>
-                <div id="standards-checks" class="ux-checkbox-list"></div>
-            </div>
-
-            <div class="ux-footer">
-                <button class="ux-btn next" id="btn-next-initial" onclick="navigateFlow('sec-na')" disabled>
-                    Siguiente →
-                </button>
+                <div class="ux-footer right">
+                    <button class="ux-btn next" id="btn-next-initial" onclick="navigateFlow('sec-na')" disabled>
+                        Siguiente: Exclusiones →
+                    </button>
+                </div>
             </div>
         </section>
 

@@ -1446,6 +1446,75 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
 .clause-text-flow li {
     margin-bottom: 8px;
 }
+
+/* ==========================================================================
+   CHUNK 1: THE DESIGN SYSTEM (Variables & Global States)
+   ========================================================================== */
+:root {
+    /* Brand Colors */
+    --brand-primary: #003366;
+    --brand-primary-hover: #002244;
+    --brand-bg: #f4f7f9;
+
+    /* Semantic State Colors (Phase 6 Unified Vocabulary) */
+    --state-empty-bg: #f8f9fa;
+    --state-empty-border: #e2e3e5;
+    --state-empty-text: #6c757d;
+
+    --state-pending-bg: #fffaf0;
+    --state-pending-border: #ffc107;
+    --state-pending-text: #856404;
+
+    --state-complete-bg: #f6fff8;
+    --state-complete-border: #28a745;
+    --state-complete-text: #155724;
+
+    --state-conflict-bg: #fff1f1;
+    --state-conflict-border: #ffb3b3;
+    --state-conflict-text: #8a1f1f;
+
+    /* Spacing & Layout */
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --radius-card: 12px;
+    --radius-pill: 20px;
+    
+    /* Shadows */
+    --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+/* Base Workspace Card (Will be used for NA, Gap Analysis, and Processes) */
+.workspace-card {
+    background: #ffffff;
+    border: 1px solid var(--state-empty-border);
+    border-radius: var(--radius-card);
+    padding: var(--space-lg);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+    margin-bottom: var(--space-md);
+}
+
+.workspace-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: #d0d7de;
+}
+
+/* Global State Badges */
+.badge-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+.badge-status.empty { background: var(--state-empty-bg); color: var(--state-empty-text); border-color: var(--state-empty-border); }
+.badge-status.pending { background: var(--state-pending-bg); color: var(--state-pending-text); border-color: var(--state-pending-border); }
+.badge-status.complete { background: var(--state-complete-bg); color: var(--state-complete-text); border-color: var(--state-complete-border); }
+.badge-status.conflict { background: var(--state-conflict-bg); color: var(--state-conflict-text); border-color: var(--state-conflict-border); }
 **** /style.css ****
 
 **** unified-phase1.css ****

@@ -905,6 +905,11 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
     margin-bottom: 8px;
 }
 
+
+
+
+
+
 /* ==========================================================================
    CHUNK 1: THE DESIGN SYSTEM (Variables & Global States)
    ========================================================================== */
@@ -973,3 +978,71 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
 .badge-status.pending { background: var(--state-pending-bg); color: var(--state-pending-text); border-color: var(--state-pending-border); }
 .badge-status.complete { background: var(--state-complete-bg); color: var(--state-complete-text); border-color: var(--state-complete-border); }
 .badge-status.conflict { background: var(--state-conflict-bg); color: var(--state-conflict-text); border-color: var(--state-conflict-border); }
+
+/* ======================================================
+   CHUNK 2: CHIPS & PROGRESSIVE DISCLOSURE (INITIAL SETUP)
+====================================================== */
+
+.chip-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.std-selection-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 10px;
+    transition: all 0.2s ease;
+}
+
+.std-selection-block.active-block {
+    border-color: #003366;
+    background: #f8f9fa;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.std-chip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 15px;
+    background: #f1f3f5;
+    color: #555;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.std-chip:hover {
+    background: #e2e6ea;
+    color: #333;
+}
+
+.std-chip.active {
+    background: #003366;
+    color: #ffffff;
+}
+
+.std-details-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    animation: fadeIn 0.3s ease;
+    margin-top: 5px;
+    border-top: 1px dashed #ccc;
+    padding-top: 10px;
+}
+
+.std-details-panel select,
+.std-details-panel input {
+    width: 100%;
+}

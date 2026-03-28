@@ -277,66 +277,70 @@ const AVAILABLE_STANDARDS = [
 
 function initStandardsUI() {
     const container = document.getElementById('standards-checks');
-    container.className = 'standards-list-container'; 
+    container.className = 'standards-list-container';
     
-    container.innerHTML = AVAILABLE_STANDARDS.map((std, index) => {
+    // Render the Summary-First Chip Grid
+    container.innerHTML = `<div class="chip-grid">` + AVAILABLE_STANDARDS.map((std, index) => {
         const isSelected = appState.Standards.has(std);
         const details = appState.standardDetails[std] || { type: '', cert: 'N/A' };
         
+        let detailsPanel = '';
+        
+        // Progressive Disclosure: Only show the config if the standard is selected
+        if (isSelected) {
+            detailsPanel = `
+                <div class="std-details-panel fade-in">
+                    <select id="sel-std-${index}" class="std-compact-select" onchange="handleStandardSelectChange('${std}', ${index})">
+                        <option value="N/A" ${details.type === 'N/A' || details.type === '' ? 'selected' : 'hidden'}>Tipo de Auditoría...</option>
+                        <option value="Estudio" ${details.type === 'Estudio' ? 'selected' : ''}>Estudio</option>
+                        <option value="Seguimiento" ${details.type === 'Seguimiento' ? 'selected' : ''}>Seguimiento</option>
+                        <option value="Renovación" ${details.type === 'Renovación' ? 'selected' : ''}>Renovación</option>
+                        <option value="Diagnóstico" ${details.type === 'Diagnóstico' ? 'selected' : ''}>Diagnóstico</option>
+                        <option value="Restauración" ${details.type === 'Restauración' ? 'selected' : ''}>Restauración</option>
+                        <option value="Transferencia" ${details.type === 'Transferencia' ? 'selected' : ''}>Transferencia</option>
+                        <option value="Otro" ${details.type === 'Otro' ? 'selected' : ''}>Otro</option>
+                    </select>
+                    
+                    <input type="text" id="inp-std-${index}" class="std-compact-input" value="${details.cert}" 
+                           ${details.type && details.type !== 'N/A' ? '' : 'disabled'}
+                           oninput="handleStandardInputChange('${std}', ${index})"
+                           onblur="handleStandardInputBlur('${std}', ${index})">
+                </div>
+            `;
+        }
+        
         return `
-        <div class="std-row-compact">
-            <button type="button" 
-                    id="btn-std-${index}" 
-                    class="chap-btn std ${isSelected ? 'active' : ''}" 
-                    style="padding: 8px; font-size: 0.95rem; width: 150px; flex-shrink: 0;"
-                    onclick="toggleStandard('${std}', ${index})">
+        <div class="std-selection-block ${isSelected ? 'active-block' : ''}">
+            <div class="std-chip ${isSelected ? 'active' : ''}" onclick="toggleStandard('${std}', ${index})">
                 ${std}
-            </button>
-            
-            <select id="sel-std-${index}" 
-                    class="std-compact-select" 
-                    ${isSelected ? '' : 'disabled'} 
-                    onchange="handleStandardSelectChange('${std}', ${index})">
-                <option value="N/A" ${details.type === 'N/A' || !isSelected ? 'selected' : 'hidden'}>N/A</option>
-                <option value="" ${details.type === '' && isSelected ? 'selected' : 'hidden'} disabled>Seleccione...</option>
-                <option value="Estudio" ${details.type === 'Estudio' ? 'selected' : ''}>Estudio</option>
-                <option value="Seguimiento" ${details.type === 'Seguimiento' ? 'selected' : ''}>Seguimiento</option>
-                <option value="Renovación" ${details.type === 'Renovación' ? 'selected' : ''}>Renovación</option>
-                <option value="Diagnóstico" ${details.type === 'Diagnóstico' ? 'selected' : ''}>Diagnóstico</option>
-                <option value="Restauración" ${details.type === 'Restauración' ? 'selected' : ''}>Restauración</option>
-                <option value="Transferencia" ${details.type === 'Transferencia' ? 'selected' : ''}>Transferencia</option>
-                <option value="Otro" ${details.type === 'Otro' ? 'selected' : ''}>Otro</option>
-            </select>
-            
-            <input type="text" 
-                   id="inp-std-${index}" 
-                   class="std-compact-input" 
-                   value="${details.cert}" 
-                   ${isSelected && details.type && details.type !== 'N/A' ? '' : 'disabled'}
-                   oninput="handleStandardInputChange('${std}', ${index})"
-                   onblur="handleStandardInputBlur('${std}', ${index})">
+            </div>
+            ${detailsPanel}
         </div>
         `;
-    }).join('');
+    }).join('') + `</div>`;
     
     document.getElementById('input-org').value = appState.meta.organizationName;
     document.getElementById('input-date').value = appState.meta.reportDate;
+    
+    // Apply disable logic and validations for newly rendered inputs
     for (let index = 0; index < AVAILABLE_STANDARDS.length; index++) {
         if (appState.Standards.has(AVAILABLE_STANDARDS[index])) {
             const sel = document.getElementById(`sel-std-${index}`);
             const inp = document.getElementById(`inp-std-${index}`);
 
-            switch(sel.value) {
-                case "Estudio":       inp.disabled=true; break;
-                case "Diagnóstico":   inp.disabled=true; break;
-                case "Transferencia": inp.disabled=true; break;
-                case "Otro":          inp.disabled=true; break;
-            }
+            if (sel && inp) {
+                switch(sel.value) {
+                    case "Estudio":       inp.disabled = true; break;
+                    case "Diagnóstico":   inp.disabled = true; break;
+                    case "Transferencia": inp.disabled = true; break;
+                    case "Otro":          inp.disabled = true; break;
+                }
 
-            handleStandardInputChange(AVAILABLE_STANDARDS[index], index);
-            if (inp.value.trim() == "") {
-                inp.classList.remove('invalid-format');
-                inp.placeholder = "Número de Certificado...";
+                handleStandardInputChange(AVAILABLE_STANDARDS[index], index);
+                if (inp.value.trim() == "") {
+                    inp.classList.remove('invalid-format');
+                    inp.placeholder = "Número de Certificado...";
+                }
             }
         }
     }

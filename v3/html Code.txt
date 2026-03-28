@@ -25,7 +25,7 @@
         <button id="nav-sec-export" class="nav-btn locked" disabled onclick="navigateFlow('sec-export')">EXPORTAR</button>
     </nav>
 
-    <div id="app-container" class="ux-container">
+    <div id="app-container" class="ux-container workspace-system">
 
         <!-- SECTION: LOAD -->
         <section id="sec-load" class="spa-section ux-section hidden">
