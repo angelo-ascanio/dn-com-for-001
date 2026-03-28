@@ -1875,7 +1875,6 @@ function renderMissingRequirements() {
     const container = document.getElementById('missing-requirements-summary');
     if (!container) return;
 
-    // Si no hay normas, ocultar
     if (appState.Standards.size === 0) {
         container.classList.add('hidden');
         return;
@@ -1885,65 +1884,33 @@ function renderMissingRequirements() {
     let hasMissing = false;
 
     appState.Standards.forEach(std => {
-        // 1. Obtener todas las cláusulas base de esta norma
-        // const allStdChapters = Object.keys(nm_NORM_DATA).filter(key => nm_NORM_DATA[key].standards.includes(std) && !nm_NORM_DATA[key].parent);
-        // let allStdClauses = [];
-        // allStdChapters.forEach(clause => {
-        //     allStdClauses.push(...nm_NORM_DATA[clause].children.filter(c => nm_NORM_DATA[c].standards.includes(std)));
-        // });
         const stdData = nm_NORM_DATA[std] || {};
-        // const allStdChapters = Object.keys(stdData).filter(key => !stdData[key].parent);
-
-        let allStdClauses = [];
-        // allStdClauses = Object.keys(stdData).filter(key => stdData[key].parent).reverse();
-        allStdClauses = Object.keys(stdData).reverse();
-        // allStdChapters.forEach(clause => {
-        //     // Just grab all children for this chapter directly
-        //     allStdClauses.push(...(stdData[clause].children || []));
-        // });
-        // // 2. Extraer todo lo que ya está cubierto (Procesos + No Aplicables)
-        // const coveredSet = new Set();
-        // appState.processes.forEach(proc => {
-        //     proc.assignedRequirements.forEach(reqKey => {
-        //         const [reqStd, clause] = reqKey.split('|');
-        //         if (reqStd === std) coveredSet.add(clause);
-        //     });
-        // });
-        // (appState.nonApplicableClauses || []).forEach(reqKey => {
-        //     const [reqStd, clause] = reqKey.split('|');
-        //     if (reqStd === std) coveredSet.add(clause);
-        // });
-
-        // 3. Determinar las cláusulas faltantes
+        let allStdClauses = Object.keys(stdData).reverse();
         const missingClauses = new Set();
+
         allStdClauses.forEach(clause => {
             let childCovered = false;
-            stdData[clause].children.forEach(child => {
-                if (coveredStd[std].has(child)) {
+            (stdData[clause].children || []).forEach(child => {
+                if (coveredStd[std] && coveredStd[std].has(child)) {
                     childCovered = true;
                 }
             });
-            if (!coveredStd[std].has(clause) && !childCovered) {
+            if (coveredStd[std] && !coveredStd[std].has(clause) && !childCovered) {
                 missingClauses.add(clause);
             }
         });
 
         if (missingClauses.size > 0) {
             hasMissing = true;
-            
-            // 4. LÓGICA DE RESUMEN: Solo mostrar el "padre" faltante
             const rolledUpMissing = [];
             missingClauses.forEach(clause => {
                 const parent = stdData[clause].parent;
-                // Si la cláusula no tiene padre, o su padre NO falta (está cubierto), la agregamos.
-                // Si el padre también falta, ignoramos este hijo para evitar saturación visual.
                 if (!parent || !missingClauses.has(parent)) {
                     rolledUpMissing.push(clause);
                 }
             });
-            // Ordenamos lógicamente (ej. 4.1 antes que 4.10)
             rolledUpMissing.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-
+            
             html += `
                 <div class="missing-std-block">
                     <span class="missing-std-title">${std}:</span>
@@ -1953,9 +1920,19 @@ function renderMissingRequirements() {
         }
     });
 
-    // 5. Renderizar o esconder el contenedor
     if (hasMissing) {
-        container.innerHTML = `<div class="missing-title">Requisitos Pendientes por Asignar:</div>${html}`;
+        const toggleIcon = isGapAnalysisExpanded ? '▼' : '▶';
+        const contentStyle = isGapAnalysisExpanded ? '' : 'display: none;';
+        
+        container.innerHTML = `
+            <div class="missing-title" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleGapAnalysis()">
+                <span>Requisitos Pendientes por Asignar</span>
+                <span style="font-size: 0.8rem; background: #ffe8cc; padding: 2px 8px; border-radius: 10px; color: #d9534f;">${toggleIcon}</span>
+            </div>
+            <div style="${contentStyle} margin-top: 10px;">
+                ${html}
+            </div>
+        `;
         container.classList.remove('hidden');
     } else {
         container.classList.add('hidden');
@@ -2037,22 +2014,27 @@ function inlineRenameProcess(id, inputElement) {
 
 // 3. Single-Open Accordion Toggle
 function toggleProcessExpand(id, event) {
-    // Prevent expanding if clicking inside the quick-actions area
     if (event && event.target.closest('.pw-quick-actions')) return;
     if (event && event.target.closest('button')) return;
 
     if (expandedProcessId === id) {
-        expandedProcessId = null; // Collapse if already open
+        expandedProcessId = null;
     } else {
-        expandedProcessId = id;   // Expand new, auto-collapsing others
+        expandedProcessId = id;
     }
     
     renderProcesses();
 
+    // Mobile specific: Smoothly pin the expanded card to the top of the viewport
     if (expandedProcessId) {
         setTimeout(() => {
             const el = document.getElementById(`process-card-${expandedProcessId}`);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (el) {
+                // Determine offset based on whether the nav is stacked (mobile) or sticky (desktop)
+                const yOffset = window.innerWidth <= 600 ? -20 : -80; 
+                const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                window.scrollTo({ top: y, behavior: 'smooth' });
+            }
         }, 150);
     }
 }
@@ -2214,6 +2196,20 @@ function renderExportStatus() {
             </div>
         </div>
     `;
+}
+
+/**
+ * =================================================================================
+ * FASE 7: RESPONSIVE STATE LOGIC
+ * =================================================================================
+ */
+
+// Global state to track Gap Analysis visibility. Defaults to collapsed on mobile.
+let isGapAnalysisExpanded = window.innerWidth > 600; 
+
+function toggleGapAnalysis() {
+    isGapAnalysisExpanded = !isGapAnalysisExpanded;
+    renderMissingRequirements();
 }
 
 /**

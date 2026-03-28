@@ -1439,3 +1439,113 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
     border-radius: 8px;
     margin-bottom: 20px;
 }
+
+/* ==========================================================================
+   CHUNK 7: RESPONSIVE REFINEMENT (Tablet & Mobile)
+   ========================================================================== */
+
+/* --- TABLET REFINEMENTS (< 768px) --- */
+@media (max-width: 768px) {
+    /* Stack forms */
+    .row-compact {
+        flex-direction: column;
+        gap: 15px;
+    }
+    .row-compact .half,
+    .row-compact .form-group input {
+        width: 100%;
+    }
+
+    /* Process Grid transitions to single column */
+    .process-grid-system {
+        grid-template-columns: 1fr;
+    }
+
+    /* Simplify Expanded Process Cards */
+    .pw-expanded-header {
+        align-items: flex-start;
+    }
+    .pw-expanded-identity {
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+    }
+    .inline-process-rename {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    .pw-primary-action {
+        width: 100%;
+        text-align: center;
+    }
+    
+    /* Clause lists wrap instead of truncating */
+    .na-clause-list {
+        flex-wrap: wrap;
+    }
+
+    /* Reduce Workspace headers padding */
+    .na-workspace-header {
+        padding-top: 5px;
+        padding-bottom: 5px;
+    }
+
+    /* Scale down Empty States */
+    .ux-header h2 { font-size: 1.2rem; }
+    .ux-card-icon { font-size: 1.8rem; }
+
+    /* Shrink Conflict Banners text */
+    .cross-conflict-banner { font-size: 0.85rem; }
+}
+
+/* --- MOBILE REFINEMENTS (< 600px) --- */
+@media (max-width: 600px) {
+    /* Stack Global Navigation & adjust tap targets */
+    .main-nav {
+        flex-direction: column;
+        padding: 0;
+    }
+    .nav-btn {
+        width: 100%;
+        max-width: none;
+        text-align: left;
+        padding: 15px 20px;
+        border-bottom: 1px solid #eee;
+    }
+    .nav-btn.current::after {
+        top: 50%;
+        transform: translateY(-50%);
+        right: 20px;
+    }
+
+    /* Restrict Scheme Switchers to single horizontal scrollable row */
+    .scheme-strip,
+    .pw-bottom-row {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        white-space: nowrap;
+        padding-bottom: 5px;
+        -webkit-overflow-scrolling: touch; 
+    }
+    .scheme-strip::-webkit-scrollbar,
+    .pw-bottom-row::-webkit-scrollbar {
+        display: none; /* Hide scrollbar for clean UI */
+    }
+
+    /* Split Footers: Stack buttons vertically, Siguiente on top */
+    .ux-footer.split {
+        flex-direction: column-reverse;
+        gap: 12px;
+    }
+    .ux-footer.split .ux-btn {
+        width: 100%;
+        text-align: center;
+    }
+    
+    /* Reset sticky bar position due to stacked navigation */
+    .sticky-slim-bar {
+        position: relative;
+        top: 0;
+        margin-bottom: 15px;
+    }
+}
