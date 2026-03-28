@@ -1,0 +1,127 @@
+/* ------------------------------------------------------
+   PHASE 1 — GLOBAL UX UNIFICATION
+------------------------------------------------------ */
+
+.ux-container {
+    max-width: 960px;
+    margin: auto;
+    padding: 20px;
+    animation: fadeIn 0.3s ease;
+}
+
+/* SECTION HEADER */
+.ux-header {
+    margin-bottom: 25px;
+}
+.ux-header h2 {
+    color: #003366;
+    margin: 0;
+}
+.ux-subtitle {
+    color: #666;
+    margin-top: 5px;
+    font-size: 0.9rem;
+}
+
+/* CARDS */
+.ux-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+}
+.ux-card {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    border: 1px solid #e0e0e0;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.ux-card:hover {
+    transform: translateY(-4px);
+    border-color: #003366;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+.ux-card-icon {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 10px;
+}
+
+/* FORMS */
+.ux-form label {
+    display: block;
+    font-weight: bold;
+    margin-top: 15px;
+}
+.ux-form input {
+    width: 100%;
+    padding: 10px;
+    margin-top: 6px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    transition: border-color 0.2s;
+}
+.ux-form input:focus {
+    border-color: #003366;
+}
+
+/* BUTTONS */
+.ux-btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 25px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+.ux-btn.primary {
+    background: #003366;
+    color: white;
+}
+.ux-btn.next {
+    background: #003366;
+    color: white;
+}
+.ux-btn.prev {
+    background: #ddd;
+}
+.ux-btn:active {
+    transform: scale(0.97);
+}
+.ux-btn:disabled {
+    background: #ccc !important;
+    cursor: not-allowed;
+}
+
+.ux-footer {
+    margin-top: 30px;
+    display: flex;
+    justify-content: flex-end;
+}
+.ux-footer.split {
+    justify-content: space-between;
+}
+.ux-footer.left {
+    justify-content: flex-start;
+}
+
+/* LISTS */
+.ux-list {
+    margin-bottom: 25px;
+}
+
+/* VALIDATION STATE */
+.valid {
+    border-left: 6px solid #2e7d32 !important;
+}
+.invalid {
+    border-left: 6px solid #c62828 !important;
+}
+
+/* ANIMATION */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
