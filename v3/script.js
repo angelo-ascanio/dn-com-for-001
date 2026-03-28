@@ -1004,68 +1004,148 @@ function isDocumentReadyForFinalExport() {
     return true;
 }
 
-// 5. Renderizado de Tarjetas
+// 4. Render Engine for Process Cards
 function renderProcesses() {
-    //const grid = document.getElementById("process-grid");
     const grid = document.getElementById("process-grid");
+    if (!grid) return;
     grid.innerHTML = "";
 
     const processCount = appState.processes.length;
 
-    // Capacity Warning
+    // Capacity Management
     const warning = document.getElementById("process-capacity-warning");
     warning.classList.toggle("hidden", processCount < PDF_MAX_PROCESSES);
-
-    // Hide Add Button when full
     document.getElementById("btn-add-process").disabled = processCount >= PDF_MAX_PROCESSES;
 
     if (processCount === 0) {
         grid.innerHTML = `
-            <p style="color: #777; text-align:center; padding: 20px;">
-                No hay procesos aún. Haz clic en <b>“Añadir Proceso”</b>.
-            </p>
+            <div class="na-empty-state">
+                <p style="margin: 0; font-size: 1.05rem;">No hay procesos registrados.</p>
+                <p style="margin: 5px 0 0 0; font-size: 0.9rem;">Haga clic en "+ Añadir Proceso" para comenzar a mapear su sistema.</p>
+            </div>
         `;
         return;
     }
 
-    // Render Each Process Card
-    appState.processes.forEach((proc) => {
-        const assigned = proc.assignedRequirements.length;
-        const statusClass =
-            assigned === 0 ? "empty" :
-            assigned > 0 ? "pending" :
-            "complete";
-
+    appState.processes.forEach((proc, index) => {
+        const orderNum = String(index + 1).padStart(2, '0');
+        const assignedCount = proc.assignedRequirements.length;
+        
+        // Unified Phase 6 State Vocabulary
+        const statusClass = assignedCount === 0 ? "empty" : "complete";
+        const statusText = assignedCount === 0 ? "Sin asignar" : "Completado";
+        
         const card = document.createElement("div");
-        card.className = "process-card-v2";
+        card.id = `process-card-${proc.id}`;
+        card.className = "process-workspace";
 
-        card.innerHTML = `
-            <div class="process-title-row">
-                <div class="process-name">${proc.name}</div>
-                <div class="process-actions">
-                    <span class="process-btn-icon" onclick="openAssignmentModal(${proc.id})">📝</span>
-                    <span class="process-btn-icon" onclick="showProcessForm(${proc.id})">✏️</span>
-                    <span class="process-btn-icon" onclick="deleteProcessUI(${proc.id})">🗑️</span>
+        if (proc.id !== expandedProcessId) {
+            // ==========================================
+            // PHASE 4: COLLAPSED CARD (Summary-First)
+            // ==========================================
+            
+            // Extract unique schemes mapped to this process
+            const mappedSchemes = new Set();
+            (proc.assignedRequirements || []).forEach(req => {
+                mappedSchemes.add(req.split('\n')[0]);
+            });
+
+            let chipsHtml = Array.from(mappedSchemes)
+                .map(std => `<span class="pw-scheme-chip">${std}</span>`)
+                .join('');
+            
+            if (mappedSchemes.size === 0) {
+                chipsHtml = `<span style="font-size: 0.8rem; color: #999;">Sin normas mapeadas</span>`;
+            }
+
+            card.innerHTML = `
+                <div class="pw-collapsed" onclick="toggleProcessExpand(${proc.id}, event)">
+                    <div class="pw-top-row">
+                        <div class="pw-identity">
+                            <span class="pw-order">${orderNum}</span>
+                            <span class="pw-name" title="${proc.name}">${proc.name}</span>
+                            <span class="badge-status ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="pw-quick-actions">
+                            <button class="pw-action-btn" onclick="openAssignmentModal(${proc.id})" title="Gestionar Requisitos">✏️ Modal</button>
+                            <button class="pw-action-btn delete" onclick="deleteProcessUI(${proc.id})" title="Eliminar Proceso">🗑️</button>
+                        </div>
+                    </div>
+                    <div class="pw-bottom-row">
+                        ${chipsHtml}
+                    </div>
                 </div>
-            </div>
+            `;
+        } else {
+            // ==========================================
+            // PHASE 5: EXPANDED CARD (Detail & Control)
+            // ==========================================
+            
+            // Group requirements by Scheme -> Chapter for read-only view
+            const grouped = {};
+            (proc.assignedRequirements || []).forEach(req => {
+                const [std, clause] = req.split('\n');
+                if (!grouped[std]) grouped[std] = {};
+                
+                const stdData = nm_NORM_DATA[std] || {};
+                const ancestors = stdData[clause]?.ancestors || [];
+                const chapter = ancestors.length > 0 ? ancestors[ancestors.length - 1] : clause;
+                
+                if (!grouped[std][chapter]) grouped[std][chapter] = new Set();
+                grouped[std][chapter].add(clause);
+            });
 
-            <div class="process-status ${statusClass}">
-                <span class="status-label">
-                    ${
-                        assigned === 0
-                        ? "Sin requisitos asignados"
-                        : assigned + " requisitos asignados"
-                    }
-                </span>
-            </div>
-        `;
+            let detailsHtml = "";
+            if (Object.keys(grouped).length === 0) {
+                detailsHtml = `<div style="text-align: center; color: #666; padding: 10px;">Sin requisitos asignados. Haga clic en Gestionar Requisitos para comenzar.</div>`;
+            } else {
+                Object.keys(grouped).sort().forEach(std => {
+                    detailsHtml += `<div style="font-weight: bold; color: var(--brand-primary); margin-bottom: 5px;">${std}</div>`;
+                    const chapters = Object.keys(grouped[std]).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+                    
+                    chapters.forEach(chap => {
+                        const clauses = Array.from(grouped[std][chap]).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+                        detailsHtml += `
+                            <div class="na-chapter-group" style="margin-left: 10px; margin-bottom: 10px;">
+                                <div class="na-chapter-title">Capítulo ${chap}</div>
+                                <div class="na-clause-list">
+                                    ${clauses.map(c => `<div class="na-clause-chip">${c}</div>`).join('')}
+                                </div>
+                            </div>
+                        `;
+                    });
+                });
+            }
+
+            card.innerHTML = `
+                <div class="pw-expanded">
+                    <div class="pw-expanded-header">
+                        <div class="pw-expanded-identity">
+                            <span class="pw-order">${orderNum}</span>
+                            <input type="text" class="inline-process-rename" value="${proc.name}" 
+                                   onblur="inlineRenameProcess(${proc.id}, this)" 
+                                   placeholder="Nombre del proceso...">
+                            <span class="badge-status ${statusClass}">${statusText}</span>
+                        </div>
+                        <button class="pw-primary-action" onclick="openAssignmentModal(${proc.id})">
+                            Gestionar Requisitos
+                        </button>
+                    </div>
+                    
+                    <div class="pw-clause-body">
+                        ${detailsHtml}
+                    </div>
+
+                    <div class="pw-expanded-footer">
+                        <button class="pw-action-btn delete" onclick="deleteProcessUI(${proc.id})">Eliminar Proceso</button>
+                        <button class="pw-action-btn" onclick="toggleProcessExpand(${proc.id})">Cerrar Tarjeta</button>
+                    </div>
+                </div>
+            `;
+        }
 
         grid.appendChild(card);
     });
-
-    renderProcessesStatus();
-    renderExportStatus();
-    refreshMainNav();
 }
 
 function renderProcessesStatus() {
@@ -1823,6 +1903,83 @@ function expandStoredClausesForStandard(std, storedReqs) {
     });
 
     return expanded;
+}
+
+/**
+ * =================================================================================
+ * FASE 4 & 5: GESTIÓN DE PROCESOS (WORKSPACE IN-PAGE)
+ * =================================================================================
+ */
+
+// Track the currently expanded process for the Single-Open Accordion rule
+let expandedProcessId = null;
+
+// 1. Añadir Proceso Inline (Replaces old modal form)
+function addNewProcessInline() {
+    if (appState.processes.length >= PDF_MAX_PROCESSES) {
+        showToast("Límite de 30 procesos alcanzado.");
+        return;
+    }
+
+    const newProcess = {
+        id: Date.now(),
+        name: `Proceso ${String(appState.processes.length + 1).padStart(2, '0')}`,
+        modalSelections: [],
+        assignedRequirements: [],
+        lastPath: []
+    };
+
+    appState.processes.push(newProcess);
+    expandedProcessId = newProcess.id; // Auto-expand newly created process
+    
+    saveAppState();
+    renderProcesses();
+    renderProcessesStatus();
+    refreshMainNav();
+
+    // Scroll to new process
+    setTimeout(() => {
+        const el = document.getElementById(`process-card-${newProcess.id}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+}
+
+// 2. Renombrar Inline (onBlur)
+function inlineRenameProcess(id, inputElement) {
+    const proc = appState.processes.find(p => p.id === id);
+    if (proc) {
+        const newName = inputElement.value.trim();
+        if (newName) {
+            proc.name = newName;
+        } else {
+            inputElement.value = proc.name; // Revert to old name if left blank
+        }
+        saveAppState();
+        renderProcessesStatus();
+        refreshMainNav();
+    }
+}
+
+// 3. Single-Open Accordion Toggle
+function toggleProcessExpand(id, event) {
+    // Prevent expanding if clicking inside the quick-actions area
+    if (event && event.target.closest('.pw-quick-actions')) return;
+    if (event && event.target.closest('button')) return;
+
+    if (expandedProcessId === id) {
+        expandedProcessId = null; // Collapse if already open
+    } else {
+        expandedProcessId = id;   // Expand new, auto-collapsing others
+    }
+    
+    renderProcesses();
+
+    if (expandedProcessId) {
+        setTimeout(() => {
+            const el = document.getElementById(`process-card-${expandedProcessId}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+    }
 }
 
 /**

@@ -124,32 +124,23 @@
         <!-- SECTION: PROCESSES -->
         <section id="sec-processes" class="spa-section ux-section hidden">
             <div class="ux-header">
-                <h2>Procesos</h2>
-                <p class="ux-subtitle">Defina los procesos y asigne los requisitos aplicables.</p>
+                <h2>Gestión de Procesos</h2>
+                <p class="ux-subtitle">Defina sus procesos y asigne los requisitos. Máximo 30 procesos.</p>
             </div>
 
-            <div id="process-grid" class="process-grid"></div>
+            <div id="process-section-status" class="missing-summary hidden"></div>
 
-            <button id="btn-add-process" class="ux-btn primary" onclick="showProcessForm()">
-                + Añadir Proceso
-            </button>
+            <div class="process-toolbar" style="margin-bottom: 15px;">
+                <button id="btn-add-process" class="ux-btn primary" onclick="addNewProcessInline()">
+                    + Añadir Proceso
+                </button>
+            </div>
 
             <div id="process-capacity-warning" class="process-warning hidden">
                 Has alcanzado el número máximo de procesos compatibles con el PDF (30).
             </div>
 
-            <div id="process-section-status" class="missing-summary hidden"></div>
-
-            <div id="process-form-container" class="process-form-panel hidden">
-                <h4 id="form-title">Registrar Nuevo Proceso</h4>
-                <div class="form-row">
-                    <input id="process-name-input" type="text" placeholder="Nombre del proceso">
-                    <div class="form-actions">
-                        <button class="btn-save" onclick="saveProcess()">Guardar</button>
-                        <button class="btn-cancel" onclick="hideProcessForm()">Cancelar</button>
-                    </div>
-                </div>
-            </div>
+            <div id="process-grid" class="process-grid-system"></div>
 
             <div class="ux-footer split">
                 <button class="ux-btn prev" onclick="navigateFlow('sec-na')">← Anterior</button>
