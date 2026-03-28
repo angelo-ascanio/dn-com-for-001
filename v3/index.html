@@ -128,6 +128,8 @@
                 <p class="ux-subtitle">Defina sus procesos y asigne los requisitos. Máximo 30 procesos.</p>
             </div>
 
+            <div id="slim-bar-status" class="sticky-slim-bar" style="display: none;"></div>
+
             <div id="process-section-status" class="missing-summary hidden"></div>
 
             <div class="process-toolbar" style="margin-bottom: 15px;">
@@ -144,7 +146,7 @@
 
             <div class="ux-footer split">
                 <button class="ux-btn prev" onclick="navigateFlow('sec-na')">← Anterior</button>
-                <button class="ux-btn next" onclick="navigateFlow('sec-export')">Siguiente →</button>
+                <button id="btn-next-processes" class="ux-btn next" onclick="navigateFlow('sec-export')">Siguiente →</button>
             </div>
         </section>
 

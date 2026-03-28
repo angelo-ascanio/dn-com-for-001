@@ -1729,7 +1729,7 @@ function showToast(message, timeout = 3200) {
 
 /**
  * =================================================================================
- * FASE 3.C: MONITOR DE ESTADO NORMATIVO (SLIM BAR)
+ * FASE 3.C & 5: MONITOR DE ESTADO NORMATIVO (STICKY SLIM BAR)
  * =================================================================================
  */
 
@@ -1737,34 +1737,109 @@ function updateSlimBar() {
     const container = document.getElementById('slim-bar-status');
     if (!container) return;
     
-    container.innerHTML = '';
-    
     if (appState.Standards.size === 0) {
         container.style.display = 'none';
         return;
     }
     
     container.style.display = 'flex';
+    container.innerHTML = '';
     coveredSet = new Set();
+    coveredStd = {};
+
+    // Phase 7: Truncation Rule
+    const isMobile = window.innerWidth <= 600;
+    const needsTruncation = isMobile && appState.Standards.size > 3;
+
+    // Fetch conflicts to assign the RED error state
+    const conflicts = getCrossModeConflicts();
+    const conflictStds = new Set(conflicts.map(c => c.std));
+
     appState.Standards.forEach(std => {
         const { total, covered } = calculateStandardCoverage(std);
         
-        let stateClass = 'status-gray'; // Completamente vacía [cite: 46]
-        if (covered === total && total > 0) {
-            stateClass = 'status-green'; // Cobertura total [cite: 48]
+        // Phase 6: Unified Vocabulary
+        let stateClass = 'status-gray'; // Vacío
+        
+        if (conflictStds.has(std)) {
+            stateClass = 'status-red'; // Conflicto
+        } else if (covered === total && total > 0) {
+            stateClass = 'status-green'; // Completado
         } else if (covered > 0) {
-            stateClass = 'status-orange'; // Contenido parcial [cite: 47]
+            stateClass = 'status-orange'; // En Progreso / Incompleto
         }
         
         const segment = document.createElement('div');
         segment.className = `slim-segment ${stateClass}`;
         segment.title = `${std}: ${covered} de ${total} cláusulas completadas`;
-        segment.innerText = std; // Nombres de las normas seleccionadas [cite: 44]
         
+        // Apply Truncation
+        let displayName = std;
+        if (needsTruncation) {
+            const match = std.match(/\d{4,5}/); // Extrara "9001", "14001", etc.
+            displayName = match ? match[0] : std;
+        }
+        
+        segment.innerText = displayName;
         container.appendChild(segment);
     });
+    
     renderMissingRequirements();
 }
+
+/**
+ * =================================================================================
+ * PROGRESS CONTROLLER: FOOTER NAVIGATION SYNC
+ * =================================================================================
+ */
+
+function syncFooterButtons() {
+    // SEC-INITIAL: Siguiente
+    const btnNextInitial = document.getElementById('btn-next-initial');
+    if (btnNextInitial) {
+        btnNextInitial.disabled = !isInitialComplete();
+    }
+
+    // SEC-NA: Siguiente
+    const btnNextNa = document.querySelector('#sec-na .ux-btn.next');
+    if (btnNextNa) {
+        btnNextNa.disabled = !isInitialComplete();
+    }
+
+    // SEC-PROCESSES: Siguiente (Export)
+    const btnNextProc = document.getElementById('btn-next-processes');
+    if (btnNextProc) {
+        const isReady = isDocumentReadyForFinalExport();
+        btnNextProc.disabled = !isReady;
+        
+        if (!isReady) {
+            btnNextProc.title = "Debe completar todas las asignaciones y resolver conflictos para exportar.";
+            btnNextProc.style.cursor = "not-allowed";
+        } else {
+            btnNextProc.title = "Ir a Exportar";
+            btnNextProc.style.cursor = "pointer";
+        }
+    }
+}
+
+// Ensure you hook this into your existing refreshMainNav function!
+// Example update to your existing refreshMainNav:
+const _oldRefreshMainNav = typeof refreshMainNav !== "undefined" ? refreshMainNav : null;
+refreshMainNav = function () {
+    if (_oldRefreshMainNav) _oldRefreshMainNav();
+    syncFooterButtons(); // Bind the footers tightly to the state of the top nav
+};
+
+// Add resize listener to dynamically trigger text truncation on mobile rotation/resize
+window.addEventListener('resize', () => {
+    // Debounce resize slightly for performance
+    clearTimeout(window._resizeTimer);
+    window._resizeTimer = setTimeout(() => {
+        if (appState.navigate === 'sec-processes') {
+            updateSlimBar();
+        }
+    }, 150);
+});
 
 function calculateStandardCoverage(std) {
     const clauses = nm_NORM_DATA[std] || {};

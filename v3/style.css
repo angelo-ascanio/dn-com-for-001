@@ -1328,3 +1328,86 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
     padding-top: 15px;
     border-top: 1px solid #eee;
 }
+
+/* ==========================================================================
+   CHUNK 5: STICKY LOGIC, PROGRESS CONTROLLER & RESPONSIVE FOOTER
+   ========================================================================== */
+
+/* The Sticky Global Coverage Strip (Slim Bar) */
+.sticky-slim-bar {
+    position: sticky;
+    top: 55px; /* Adjust based on your main-nav height */
+    z-index: 40; /* Sits below main-nav */
+    margin-top: -5px;
+    margin-bottom: 20px;
+    height: 36px;
+    display: flex;
+    width: 100%;
+    background: #fff;
+    border-radius: var(--radius-card);
+    box-shadow: 0 4px 6px -4px rgba(0,0,0,0.1);
+    overflow: hidden;
+    border: 1px solid var(--state-empty-border);
+}
+
+.slim-segment {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #444;
+    text-transform: uppercase;
+    border-bottom: 4px solid var(--state-empty-border);
+    transition: all 0.3s ease;
+    background: #fdfdfd;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 5px;
+}
+
+/* Phase 6: Unified State Vocabulary Colors */
+.slim-segment.status-gray { 
+    border-bottom-color: var(--state-empty-border); 
+    color: var(--state-empty-text); 
+}
+.slim-segment.status-orange { 
+    border-bottom-color: var(--state-pending-border); 
+    background: var(--state-pending-bg); 
+    color: var(--state-pending-text); 
+}
+.slim-segment.status-green { 
+    border-bottom-color: var(--state-complete-border); 
+    background: var(--state-complete-bg); 
+    color: var(--state-complete-text); 
+}
+.slim-segment.status-red { 
+    border-bottom-color: var(--state-conflict-border); 
+    background: var(--state-conflict-bg); 
+    color: var(--state-conflict-text); 
+}
+
+/* Phase 7: Mobile Density and Stacking Rules */
+@media (max-width: 600px) {
+    .sticky-slim-bar {
+        top: 180px; /* Adjust if main-nav stacks vertically taking more space */
+    }
+    
+    .slim-segment {
+        font-size: 0.65rem;
+        padding: 0 2px;
+    }
+
+    /* Stack footer actions on mobile, prioritizing 'Siguiente' on top */
+    .ux-footer.split {
+        flex-direction: column-reverse;
+        gap: 12px;
+    }
+    
+    .ux-footer.split .ux-btn {
+        width: 100%;
+        text-align: center;
+    }
+}
