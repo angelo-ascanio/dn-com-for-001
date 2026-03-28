@@ -2059,6 +2059,165 @@ function toggleProcessExpand(id, event) {
 
 /**
  * =================================================================================
+ * FASE 6: EXPORTACIÓN Y PERSISTENCIA (JSON / PDF BRIDGE)
+ * =================================================================================
+ */
+
+// 1. Export as JSON (Save Work)
+function exportAsJSON() {
+    if (!isDocumentReadyForFinalExport()) {
+        showToast("El documento debe estar validado sin errores ni pendientes para exportar.");
+        return;
+    }
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
+    const downloadNode = document.createElement('a');
+    downloadNode.setAttribute("href", dataStr);
+    
+    // Create a smart filename based on context
+    const org = appState.meta.organizationName ? appState.meta.organizationName.replace(/\s+/g, '_') : "Organizacion";
+    const date = appState.meta.reportDate || "SinFecha";
+    
+    downloadNode.setAttribute("download", `Requisitos_${org}_${date}.json`);
+    document.body.appendChild(downloadNode);
+    downloadNode.click();
+    downloadNode.remove();
+    
+    showToast("Archivo JSON exportado correctamente.");
+}
+
+// 2. Export as PDF (Maps to DN-COM-FOR-001)
+function exportAsPDF() {
+    if (!isDocumentReadyForFinalExport()) {
+        showToast("El documento debe estar validado sin errores ni pendientes para generar el PDF.");
+        return;
+    }
+    
+    if (appState.processes.length > PDF_MAX_PROCESSES) {
+        showToast(`El PDF oficial soporta un máximo de ${PDF_MAX_PROCESSES} procesos. Por favor, consolide sus datos.`);
+        return;
+    }
+
+    // This is the bridge where you hand the sanitized data to your PDF generator library (e.g., pdfmake/jsPDF)
+    console.log("Generando estructura DN-COM-FOR-001 con los siguientes datos:", appState);
+    showToast("Estructura lista para el motor PDF.");
+}
+
+// 3. Import JSON (Load Work - connects to the button in sec-load)
+function handleImportJSON() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = e => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.readAsText(file, 'UTF-8');
+        reader.onload = readerEvent => {
+            try {
+                const parsed = JSON.parse(readerEvent.target.result);
+                
+                // Hydrate global state safely
+                appState.meta = parsed.meta || appState.meta;
+                appState.Standards = new Set(parsed.standards || []);
+                appState.standardDetails = parsed.standardDetails || {};
+                appState.processes = parsed.processes || [];
+                appState.nonApplicableClauses = parsed.nonApplicableClauses || [];
+                appState.nonApplicableIntent = parsed.nonApplicableIntent || [];
+                appState.lastPath = parsed.lastPath || [];
+                appState.naLastPath = parsed.naLastPath || [];
+
+                // Push to localStorage
+                saveAppState();
+                resetModalTransientState();
+                
+                // Re-render UI layer
+                initStandardsUI();
+                renderInitial();
+                renderProcesses();
+                renderProcessesStatus();
+                renderNaSummary();
+                renderCrossConflictBanner();
+                updateSlimBar();
+                refreshMainNav();
+
+                showToast("Datos importados con éxito.");
+                navigateFlow('sec-initial'); // Jump to initial validation step
+
+            } catch (error) {
+                console.error(error);
+                showToast("Error al leer el archivo JSON. Formato inválido.");
+            }
+        }
+    }
+    input.click();
+}
+
+// 4. UPDATE: renderExportStatus (Replace your existing function)
+function renderExportStatus() {
+    const container = document.getElementById('export-validation-status');
+    const cardJson = document.getElementById('card-export-json');
+    const cardPdf = document.getElementById('card-export-pdf');
+    
+    if (!container) return;
+
+    const messages = [];
+    const isReady = isDocumentReadyForFinalExport();
+    const isUnderProcessLimit = appState.processes.length <= PDF_MAX_PROCESSES;
+
+    // Control visibility of action cards based on document readiness
+    if (cardJson) cardJson.classList.toggle('disabled', !isReady);
+    if (cardPdf) cardPdf.classList.toggle('disabled', !isReady || !isUnderProcessLimit);
+
+    if (!isInitialComplete()) {
+        messages.push("La información general aún está incompleta.");
+    }
+
+    if (!appState.processes || appState.processes.length === 0) {
+        messages.push("Debes registrar al menos un proceso.");
+    } else {
+        const incomplete = appState.processes.filter(p => !p.assignedRequirements || p.assignedRequirements.length === 0);
+        if (incomplete.length > 0) {
+            messages.push("Existen procesos sin requisitos asignados.");
+        }
+        if (!isUnderProcessLimit) {
+            messages.push(`Excediste el límite de ${PDF_MAX_PROCESSES} procesos requeridos por el estándar PDF.`);
+        }
+    }
+
+    const conflicts = getCrossModeConflicts();
+    if (conflicts.length > 0) {
+        messages.push("Existen conflictos entre requisitos aplicables y no aplicables.");
+    }
+
+    for (const std of appState.Standards) {
+        const coverage = calculateStandardCoverage(std);
+        if (coverage.total !== coverage.covered) {
+            messages.push(`${std} aún tiene cláusulas pendientes por asignar.`);
+        }
+    }
+
+    if (messages.length === 0) {
+        container.innerHTML = `
+            <div class="export-success-message">
+                <h3 style="margin-top:0;">Documento validado</h3>
+                <p style="margin-bottom:0;">El documento está completo y listo para exportarse como salida final.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <div style="background: var(--state-pending-bg); border: 1px solid var(--state-pending-border); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="margin-top:0; color: var(--state-pending-text);">Documento aún no validado</h3>
+            <div style="color: #555;">
+                ${messages.map(msg => `<div style="margin-bottom:6px;">• ${msg}</div>`).join('')}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * =================================================================================
  * FASE 4 & 5: PUENTE CON EL NUEVO MODAL SPA
  * =================================================================================
  */

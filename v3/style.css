@@ -1411,3 +1411,31 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
         text-align: center;
     }
 }
+
+/* ==========================================================================
+   CHUNK 6:  Export & Local Persistence (sec-export)
+   ========================================================================== */
+
+/* Export & Persistence Overrides */
+.ux-card.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #f8f9fa;
+    border-color: #e2e3e5;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.ux-card.disabled .ux-card-icon {
+    filter: grayscale(100%);
+    opacity: 0.6;
+}
+
+.export-success-message {
+    color: var(--state-complete-text);
+    background: var(--state-complete-bg);
+    border: 1px solid var(--state-complete-border);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}

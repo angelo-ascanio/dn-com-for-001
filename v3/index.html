@@ -152,29 +152,31 @@
 
         <!-- SECTION: EXPORT -->
         <section id="sec-export" class="spa-section ux-section hidden">
-            <div class="ux-header">
-                <h2>Exportar</h2>
-                <p class="ux-subtitle">Descargue JSON o genere el PDF compatible.</p>
-            </div>
-
-            <div id="export-validation-status" class="na-section-card"></div>
-
-            <div class="ux-card-grid">
-                <div class="ux-card" onclick="exportAsJSON()">
-                    <span class="ux-card-icon">💾</span>
-                    <h3>Exportar JSON</h3>
-                    <p>Guardar el documento en formato editable.</p>
+            <div class="workspace-card">
+                <div class="ux-header">
+                    <h2>Exportar</h2>
+                    <p class="ux-subtitle">Descargue su progreso en JSON o genere el documento oficial.</p>
                 </div>
 
-                <div class="ux-card" onclick="exportAsPDF()">
-                    <span class="ux-card-icon">🧾</span>
-                    <h3>Generar PDF</h3>
-                    <p>Crear el documento oficial DN‑COM‑FOR‑001.</p>
-                </div>
-            </div>
+                <div id="export-validation-status" class="na-section-card"></div>
 
-            <div class="ux-footer left">
-                <button class="ux-btn prev" onclick="navigateFlow('sec-processes')">← Anterior</button>
+                <div class="ux-card-grid">
+                    <div id="card-export-json" class="ux-card disabled" onclick="exportAsJSON()">
+                        <span class="ux-card-icon">💾</span>
+                        <h3>Exportar JSON</h3>
+                        <p>Guardar el documento en formato editable.</p>
+                    </div>
+
+                    <div id="card-export-pdf" class="ux-card disabled" onclick="exportAsPDF()">
+                        <span class="ux-card-icon">🧾</span>
+                        <h3>Generar PDF</h3>
+                        <p>Estructura DN-COM-FOR-001 (Máx 30 procesos).</p>
+                    </div>
+                </div>
+
+                <div class="ux-footer left">
+                    <button class="ux-btn prev" onclick="navigateFlow('sec-processes')">← Anterior</button>
+                </div>
             </div>
         </section>
     </div>
