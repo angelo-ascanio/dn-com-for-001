@@ -1488,69 +1488,148 @@ function getCrossModeConflicts() {
     });
 }
 
+let activeNaScheme = null;
+
 function renderNaSummary() {
     const container = document.getElementById("na-summary-content");
-    if (!container) return;
+    const schemeStrip = document.getElementById("na-scheme-strip");
+    const statusBadge = document.getElementById("na-status-badge");
+    const btnManage = document.getElementById("btn-manage-na");
+    const workspaceCard = document.getElementById("na-workspace-card");
+    
+    if (!container || !schemeStrip) return;
 
+    // Phase 6: Empty State Rules
     if (!appState.nonApplicableClauses || appState.nonApplicableClauses.length === 0) {
-        container.innerHTML = `No hay exclusiones definidas.`;
+        schemeStrip.classList.add("hidden");
+        statusBadge.className = "badge-status empty";
+        statusBadge.textContent = "Sin exclusiones";
+        workspaceCard.style.borderColor = "var(--state-empty-border)";
+        btnManage.textContent = "Definir Exclusiones";
+        
+        container.innerHTML = `
+            <div class="na-empty-state">
+                <p style="margin: 0; font-size: 1.05rem;">No hay exclusiones definidas.</p>
+                <p style="margin: 5px 0 0 0; font-size: 0.9rem;">Si su sistema requiere excluir ciertas cláusulas normativas, defínalas aquí.</p>
+            </div>
+        `;
         return;
     }
 
+    // Phase 6: Complete State Rules
+    statusBadge.className = "badge-status complete";
+    statusBadge.textContent = "Exclusiones definidas";
+    workspaceCard.style.borderColor = "var(--state-complete-border)";
+    btnManage.textContent = "Gestionar Exclusiones";
+    schemeStrip.classList.remove("hidden");
+
+    // Group clauses by Standard and Chapter
     const grouped = {};
     appState.nonApplicableClauses.forEach(req => {
         const [std, clause] = req.split('\n');
-        if (!grouped[std]) grouped[std] = new Set();
-        grouped[std].add(clause);
+        if (!grouped[std]) grouped[std] = {};
+        
+        // Find Chapter (Top level ancestor or the clause itself if it's a root)
+        const stdData = nm_NORM_DATA[std] || {};
+        const ancestors = stdData[clause]?.ancestors || [];
+        const chapter = ancestors.length > 0 ? ancestors[ancestors.length - 1] : clause;
+        
+        if (!grouped[std][chapter]) grouped[std][chapter] = new Set();
+        grouped[std][chapter].add(clause);
     });
 
-    let html = "";
-    Object.keys(grouped).forEach(std => {
-        const clauses = Array.from(grouped[std]).sort((a, b) =>
-            a.localeCompare(b, undefined, { numeric: true })
-        );
+    const activeStandards = Object.keys(grouped);
+    
+    // Auto-select first standard if none selected or if current selection is no longer valid
+    if (!activeNaScheme || !activeStandards.includes(activeNaScheme)) {
+        activeNaScheme = activeStandards[0];
+    }
 
-        html += `
-            <div class="na-summary-block">
-                <span class="na-summary-title">${std}:</span>
-                <span>${clauses.join(", ")}</span>
-            </div>
-        `;
-    });
+    // Render Scheme Strip
+    schemeStrip.innerHTML = activeStandards.map(std => `
+        <div class="scheme-tab ${std === activeNaScheme ? 'active' : ''}" onclick="switchNaScheme('${std}')">
+            ${std}
+        </div>
+    `).join('');
 
-    container.innerHTML = html;
+    // Render Active Scheme Detail (Hierarchy: Scheme -> Chapter -> Clause)
+    if (activeNaScheme && grouped[activeNaScheme]) {
+        let html = "";
+        const chapters = Object.keys(grouped[activeNaScheme]).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        
+        chapters.forEach(chap => {
+            const clauses = Array.from(grouped[activeNaScheme][chap]).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+            html += `
+                <div class="na-chapter-group">
+                    <div class="na-chapter-title">Capítulo ${chap}</div>
+                    <div class="na-clause-list">
+                        ${clauses.map(c => `<div class="na-clause-chip">${c}</div>`).join('')}
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+}
+
+function switchNaScheme(std) {
+    activeNaScheme = std;
+    renderNaSummary();
 }
 
 function renderCrossConflictBanner() {
     const banner = document.getElementById("cross-conflict-banner");
+    const statusBadge = document.getElementById("na-status-badge");
+    const workspaceCard = document.getElementById("na-workspace-card");
     if (!banner) return;
 
     const conflicts = getCrossModeConflicts();
-
+    
     if (conflicts.length === 0) {
         banner.classList.add("hidden");
         banner.innerHTML = "";
         return;
     }
 
-    const preview = conflicts.slice(0, 5).map(c =>
-        `<div>• ${c.std}: proceso <strong>${c.processName}</strong> usa <strong>${c.processClause}</strong> y NA contiene <strong>${c.naClause}</strong></div>`
+    // Phase 6: Conflict State Rules overrides Complete state visuals
+    if (statusBadge && workspaceCard) {
+        statusBadge.className = "badge-status conflict";
+        statusBadge.textContent = "Conflicto detectado";
+        workspaceCard.style.borderColor = "var(--state-conflict-border)";
+    }
+
+    const preview = conflicts.slice(0, 3).map(c =>
+        `<div style="margin-top:4px;">• <strong>${c.processName}</strong> usa <strong>${c.processClause}</strong>, pero <strong>${c.naClause}</strong> es No Aplicable.</div>`
     ).join("");
-
-    const more = conflicts.length > 5
-        ? `<div style="margin-top:6px;">Y ${conflicts.length - 5} conflicto(s) más...</div>`
+    
+    const more = conflicts.length > 3
+        ? `<div style="margin-top:6px; font-style: italic;">Y ${conflicts.length - 3} conflicto(s) más...</div>`
         : "";
-
+        
     banner.innerHTML = `
-        Se detectaron conflictos entre requisitos aplicables y no aplicables.
-        ${preview}
-        ${more}
-        <div style="margin-top:8px; font-weight:700;">
-            Debes resolverlos antes de considerar el documento válido.
+        <div style="display: flex; gap: 10px; align-items: flex-start;">
+            <span style="font-size: 1.2rem;">⚠️</span>
+            <div>
+                <div style="margin-bottom: 5px;">Se detectaron conflictos entre requisitos aplicables y no aplicables. Revisa las asignaciones.</div>
+                ${preview}
+                ${more}
+            </div>
         </div>
     `;
     banner.classList.remove("hidden");
 }
+
+// Optional Polish: Add scroll listener to trigger sticky border shadow
+document.getElementById('sec-na').addEventListener('scroll', function(e) {
+    const header = document.getElementById('na-sticky-header');
+    if (header) {
+        if (e.target.scrollTop > 10) {
+            header.classList.add('is-stuck');
+        } else {
+            header.classList.remove('is-stuck');
+        }
+    }
+}, true);
 
 function showToast(message, timeout = 3200) {
     const toast = document.getElementById("app-toast");

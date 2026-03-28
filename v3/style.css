@@ -1046,3 +1046,102 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
 .std-details-panel input {
     width: 100%;
 }
+
+/* ======================================================
+   CHUNK 3: NON APPLICABLE ENGINE (SEC-NA)
+====================================================== */
+
+.na-workspace-header {
+    position: sticky;
+    top: 0;
+    background: #ffffff;
+    z-index: 10;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+}
+
+.na-workspace-header.is-stuck {
+    border-bottom-color: #e0e0e0;
+    box-shadow: 0 4px 6px -4px rgba(0,0,0,0.1);
+}
+
+.scheme-strip {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+    margin-top: 15px;
+    white-space: nowrap;
+}
+
+.scheme-strip::-webkit-scrollbar {
+    height: 4px;
+}
+.scheme-strip::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 4px;
+}
+
+.scheme-tab {
+    padding: 6px 14px;
+    background: #f1f3f5;
+    color: #555;
+    border-radius: 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+}
+
+.scheme-tab:hover {
+    background: #e2e6ea;
+}
+
+.scheme-tab.active {
+    background: #e3f2fd;
+    color: #003366;
+    border-color: #003366;
+}
+
+.na-chapter-group {
+    margin-bottom: 15px;
+}
+
+.na-chapter-title {
+    font-size: 0.9rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px dashed #ccc;
+    padding-bottom: 4px;
+    margin-bottom: 8px;
+    font-weight: 700;
+}
+
+.na-clause-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.na-clause-chip {
+    background: #ffffff;
+    border: 1px solid #ced4da;
+    color: #555;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.na-empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    border: 2px dashed #e2e3e5;
+    border-radius: 8px;
+    background: #f8f9fa;
+    color: #6c757d;
+}
