@@ -61,7 +61,8 @@ function getRealChildren(activeItem) {
             'ISO 27001:2022': 'Sistema de Gestión de Seguridad de la Información'
         };
         
-        Array.from(appState.Standards).forEach(std => {
+        const sortedActiveStds = sortStandards(Array.from(appState.Standards));
+        sortedActiveStds.forEach(std => {
             children.push({ code: std, label: stdNames[std] || 'Sistema de Gestión' });
         });
         return children;
@@ -345,7 +346,8 @@ function updateRow3() {
 
   bucketGrid.innerHTML = '';
 
-  for (const std of Object.keys(markedClauses)) {
+  const sortedStds = sortStandards(Object.keys(markedClauses));
+  for (const std of sortedStds) {
     const effectiveClauses = getEffectiveBucketClauses(std);
 
     if (!effectiveClauses.length) continue;
