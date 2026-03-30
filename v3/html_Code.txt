@@ -1,4 +1,8 @@
-**** index.html ****
+=== TABLE OF CONTENTS: HTML FILES ===
+1. index.html
+========================================
+
+--- FILE: index.html ---
 <!DOCTYPE html>
 <html lang="es">
   <head>
@@ -130,7 +134,7 @@
             </div>
 
             <div id="slim-bar-status" class="sticky-slim-bar" style="display: none;"></div>
-
+            
             <div id="process-section-status" class="missing-summary hidden"></div>
 
             <div class="process-toolbar" style="margin-bottom: 15px;">
@@ -226,4 +230,4 @@
     <script src="phase1-unify.js"></script>
   </body>
 </html>
-**** /index.html ****
+----------------------

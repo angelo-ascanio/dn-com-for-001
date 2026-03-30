@@ -41,6 +41,7 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
 .nav-btn:hover {
     background-color: #f0f0f0;
     color: #003366;
+    filter: brightness(0.94); 
 }
 
 .nav-btn:disabled {
@@ -137,54 +138,6 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
 .btn-flow.prev { background-color: #e0e0e0; color: #333; }
 .btn-flow.next { background-color: #003366; color: white; }
 .btn-flow.next:disabled { background-color: #ccc; cursor: not-allowed; }
-
-/* --- ACTUALIZACIÓN FASE 3.C: SLIM BAR (DISEÑO MINIMALISTA) --- */
-.slim-bar { 
-    height: 32px; /* Un poco más alta para que luzca el diseño */
-    display: flex; 
-    width: 100%; 
-    margin-bottom: 20px; 
-    background: #fff; /* Fondo blanco o muy claro */
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    overflow: hidden;
-}
-
-.slim-segment { 
-    flex: 1; 
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: #444; /* Texto siempre oscuro para legibilidad */
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 4px solid #d1d1d1; /* Línea base por defecto (Gris) */
-    transition: all 0.3s ease;
-    background: #fdfdfd;
-}
-
-/* Solo cambiamos el color de la línea inferior según el estado */
-.slim-segment.status-gray { 
-    border-bottom-color: #d1d1d1; 
-    opacity: 0.6; 
-}
-
-.slim-segment.status-orange { 
-    border-bottom-color: #fd7e14; 
-    background: #fffaf5; /* Un toque muy leve de fondo naranja */
-}
-
-.slim-segment.status-green { 
-    border-bottom-color: #28a745; 
-    background: #f6fff8; /* Un toque muy leve de fondo verde */
-}
-
-/* Efecto hover opcional para ver el nombre de la norma más claro */
-.slim-segment:hover {
-    background: #f0f0f0;
-}
 
 /* CONTENEDOR PRINCIPAL */
 #app-container {
@@ -1085,7 +1038,7 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
 }
 
 .scheme-tab {
-    padding: 6px 14px;
+    padding: 6px 5px;
     background: #f1f3f5;
     color: #555;
     border-radius: 16px;
@@ -1107,7 +1060,7 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
 }
 
 .na-chapter-group {
-    margin-bottom: 15px;
+    margin-bottom: 5px;
 }
 
 .na-chapter-title {
@@ -1117,21 +1070,21 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
     letter-spacing: 0.5px;
     border-bottom: 1px dashed #ccc;
     padding-bottom: 4px;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
     font-weight: 700;
 }
 
 .na-clause-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 5px;
 }
 
 .na-clause-chip {
     background: #ffffff;
     border: 1px solid #ced4da;
     color: #555;
-    padding: 4px 10px;
+    padding: 4px 5px;
     border-radius: 4px;
     font-size: 0.85rem;
     font-weight: 600;
@@ -1139,11 +1092,16 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
 
 .na-empty-state {
     text-align: center;
-    padding: 40px 20px;
+    padding: 10px;
     border: 2px dashed #e2e3e5;
     border-radius: 8px;
     background: #f8f9fa;
     color: #6c757d;
+}
+.na-empty-state.status-green { 
+    border-bottom-color: var(--state-complete-border); 
+    background: var(--state-complete-bg); 
+    color: var(--state-complete-text); 
 }
 
 /* ==========================================================================
@@ -1267,15 +1225,15 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
     display: flex;
     flex-direction: column;
     gap: 15px;
-    margin-bottom: 20px;
-    padding-bottom: 15px;
+    margin-bottom: 5px;
+    padding-bottom: 5px;
     border-bottom: 1px solid #eee;
 }
 
 .pw-expanded-identity {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 5px;
     width: 100%;
 }
 
@@ -1322,16 +1280,41 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
     background: #f8f9fb;
     border: 1px solid #e8edf3;
     border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 15px;
+    padding: 5px;
+    margin-bottom: 5px;
+}
+.pw-clause-body h4 {
+    margin-top: 0;
+    color: #d9534f;
+    margin-bottom: 10px;
+}
+
+.pw-clause-body.status-gray { 
+    border-bottom-color: var(--state-empty-border); 
+    color: var(--state-empty-text); 
+}
+.pw-clause-body.status-orange { 
+    border-bottom-color: var(--state-pending-border); 
+    background: var(--state-pending-bg); 
+    color: var(--state-pending-text); 
+}
+.pw-clause-body.status-green { 
+    border-bottom-color: var(--state-complete-border); 
+    background: var(--state-complete-bg); 
+    color: var(--state-complete-text); 
+}
+.pw-clause-body.status-red { 
+    border-bottom-color: var(--state-conflict-border); 
+    background: var(--state-conflict-bg); 
+    color: var(--state-conflict-text); 
 }
 
 .pw-expanded-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 15px;
-    padding-top: 15px;
+    margin-top: 5px;
+    padding-top: 5px;
     border-top: 1px solid #eee;
 }
 
@@ -1345,7 +1328,7 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
     top: 55px; /* Adjust based on your main-nav height */
     z-index: 40; /* Sits below main-nav */
     margin-top: -5px;
-    margin-bottom: 20px;
+    margin-bottom: 0px;
     height: 36px;
     display: flex;
     width: 100%;
@@ -1372,6 +1355,30 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
     overflow: hidden;
     text-overflow: ellipsis;
     padding: 0 5px;
+    position: relative;
+    transition: filter 0.2s ease, background-color 0.3s ease;
+}
+
+.slim-segment:hover {
+    filter: brightness(0.94); 
+}
+
+.slim-segment.active {
+    box-shadow: inset 0px -4px 0px rgba(0,0,0,0.15);
+    filter: brightness(0.96);
+    font-weight: 800;
+}
+
+.slim-segment.active::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #003366;
+    box-shadow: 0 0 0 2px #ffffff;
 }
 
 /* Phase 6: Unified State Vocabulary Colors */
@@ -1395,6 +1402,102 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
     color: var(--state-conflict-text); 
 }
 
+.slim-segment.current::before {
+    content: '';
+    position: absolute;
+    left: -16px; /* Adjust this depending on your container's padding */
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 10px;
+    background-color: #003366; /* Match your main theme color */
+    border-radius: 50%;
+    box-shadow: 0 0 4px rgba(0, 51, 102, 0.4);
+}
+
+/* =========================================
+   MISSING REQ PANEL IMPROVEMENTS
+========================================= */
+
+/* 3. Panel Layout and Space Management */
+.missing-req-panel {
+    position: relative; /* Required for the absolute close button */
+    width: 100%; /* Ensure it takes full width */
+    padding: 15px 40px 15px 15px; /* Extra padding on the right so text doesn't hit the X */
+    margin-top: 0px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    box-sizing: border-box;
+    animation: slideDown 0.2s ease-out;
+}
+
+.missing-req-panel.status-gray { background: #f8f9fa; border-color: #d1d1d1; color: #444; }
+.missing-req-panel.status-orange { background: #fffaf5; border-color: #fd7e14; color: #856404; }
+.missing-req-panel.status-green { background: #f6fff8; border-color: #28a745; color: #155724; }
+.missing-req-panel.status-red { background: #fff1f1; border-color: #dc3545; color: #721c24; }
+
+.missing-panel-header {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed rgba(0,0,0,0.1);
+}
+
+/* 4. Better Space Management - Converts long lists to a responsive Grid */
+.missing-panel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.na-chapter-group.compact {
+    margin-top: 0;
+    background: rgba(255,255,255,0.6);
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+.na-clause-list.compact-list {
+    gap: 5px;
+}
+
+.na-clause-chip.compact-chip {
+    padding: 3px 8px;
+    font-size: 0.85rem;
+    background: #fff;
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* 5. The Close 'X' Button */
+.missing-panel-close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: rgba(0,0,0,0.05);
+    border: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: inherit;
+    cursor: pointer;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+}
+
+.missing-panel-close:hover {
+    opacity: 1;
+    background: rgba(0,0,0,0.15);
+    transform: scale(1.1);
+}
+
 /* Phase 7: Mobile Density and Stacking Rules */
 @media (max-width: 600px) {
     .sticky-slim-bar {
@@ -1404,6 +1507,13 @@ body { margin: 0; padding: 0; background-color: #f4f4f9; color: #333; }
     .slim-segment {
         font-size: 0.65rem;
         padding: 0 2px;
+    }
+
+    .slim-segment.active::after {
+        top: 4px;
+        right: 4px;
+        width: 6px;
+        height: 6px;
     }
 
     /* Stack footer actions on mobile, prioritizing 'Siguiente' on top */

@@ -1084,7 +1084,7 @@ function renderProcesses() {
                             <span class="badge-status ${statusClass}">${statusText}</span>
                         </div>
                         <div class="pw-quick-actions">
-                            <button class="pw-action-btn" onclick="openAssignmentModal(${proc.id})" title="Gestionar Requisitos">✏️ Requisitos</button>
+                            <button class="pw-action-btn" onclick="openAssignmentModal(${proc.id})" title="Gestionar Requisitos">📌 Requisitos</button>
                             <button class="pw-action-btn delete" onclick="deleteProcessUI(${proc.id})" title="Eliminar Proceso">🗑️ Eliminar</button>
                         </div>
                     </div>
@@ -1113,7 +1113,8 @@ function renderProcesses() {
             });
 
             let detailsHtml = "";
-            const activeStandards = Object.keys(grouped).sort();
+            //const activeStandards = Object.keys(grouped).sort();
+            const activeStandards = sortStandards(Object.keys(grouped));
 
             if (activeStandards.length === 0) {
                 detailsHtml = `<div style="text-align: center; color: #666; padding: 10px;">Sin requisitos asignados. Haga clic en Gestionar Requisitos para comenzar.</div>`;
@@ -1123,6 +1124,8 @@ function renderProcesses() {
                     activeProcessScheme[proc.id] = activeStandards[0];
                 }
                 const activeStd = activeProcessScheme[proc.id];
+
+
 
                 // Build the clickable Scheme Strip (just like NA)
                 const stripHtml = `<div class="scheme-strip" style="margin-top: 0; padding-bottom: 10px; border-bottom: 1px solid #eee;">` 
@@ -1152,7 +1155,7 @@ function renderProcesses() {
 
             card.innerHTML = `
                 <div class="pw-expanded" onclick="toggleProcessExpand(${proc.id}, event)">
-                    <div class="pw-expanded-header"  style="cursor: pointer; display: flex; flex-direction: column; gap: 15px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+                    <div class="pw-expanded-header">
                         <div class="pw-expanded-identity">
                             <span class="pw-order">${orderNum}</span>
                             <input type="text" class="inline-process-rename" value="${proc.name}" 
@@ -1165,7 +1168,7 @@ function renderProcesses() {
                         </button>
                     </div>
                     
-                    <div class="pw-clause-body" style="background: #f8f9fb; border: 1px solid #e8edf3; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                    <div class="pw-clause-body">
                         ${detailsHtml}
                     </div>
 
@@ -1835,6 +1838,9 @@ function showToast(message, timeout = 3200) {
  * =================================================================================
  */
 
+let activeMissingStd = null; 
+let isFirstLoadSlimBar = true; // Tracks if it's the first time landing on sec-processes
+
 function updateSlimBar() {
     const container = document.getElementById('slim-bar-status');
     if (!container) return;
@@ -1849,36 +1855,47 @@ function updateSlimBar() {
     coveredSet = new Set();
     coveredStd = {};
 
-    // Phase 7: Truncation Rule
     const isMobile = window.innerWidth <= 600;
     const needsTruncation = isMobile && appState.Standards.size > 3;
 
-    // Fetch conflicts to assign the RED error state
     const conflicts = getCrossModeConflicts();
     const conflictStds = new Set(conflicts.map(c => c.std));
 
-    appState.Standards.forEach(std => {
+    const sortedActiveStds = sortStandards(Array.from(appState.Standards));
+
+    // AUTO-OPEN PANEL ON FIRST LOAD
+    if (isFirstLoadSlimBar && sortedActiveStds.length > 0 && appState.navigate === 'sec-processes') {
+        activeMissingStd = sortedActiveStds[0]; // Auto-select the first standard
+        isFirstLoadSlimBar = false; // Never auto-open again during this session
+    }
+
+    sortedActiveStds.forEach(std => {
         const { total, covered } = calculateStandardCoverage(std);
         
-        // Phase 6: Unified Vocabulary
-        let stateClass = 'status-gray'; // Vacío
-        
+        let stateClass = 'status-gray';
         if (conflictStds.has(std)) {
-            stateClass = 'status-red'; // Conflicto
+            stateClass = 'status-red'; 
         } else if (covered === total && total > 0) {
-            stateClass = 'status-green'; // Completado
+            stateClass = 'status-green'; 
         } else if (covered > 0) {
-            stateClass = 'status-orange'; // En Progreso / Incompleto
+            stateClass = 'status-orange'; 
         }
         
         const segment = document.createElement('div');
-        segment.className = `slim-segment ${stateClass}`;
+        // Attach the state color class, and 'active' if it's currently selected
+        segment.className = `slim-segment ${stateClass} ${activeMissingStd === std ? 'active' : ''}`;
         segment.title = `${std}: ${covered} de ${total} cláusulas completadas`;
+        segment.style.cursor = "pointer";
         
-        // Apply Truncation
+        // Toggle the interactive missing panel
+        segment.onclick = () => {
+            activeMissingStd = activeMissingStd === std ? null : std;
+            updateSlimBar(); 
+        };
+        
         let displayName = std;
         if (needsTruncation) {
-            const match = std.match(/\d{4,5}/); // Extrara "9001", "14001", etc.
+            const match = std.match(/\d{4,5}/); 
             displayName = match ? match[0] : std;
         }
         
@@ -1886,7 +1903,128 @@ function updateSlimBar() {
         container.appendChild(segment);
     });
     
-    renderMissingRequirements();
+    renderMissingRequirementsPanel();
+}
+
+// Global Close helper function for the 'X' button
+window.closeMissingPanel = function(e) {
+    if (e) e.stopPropagation();
+    activeMissingStd = null;
+    updateSlimBar();
+};
+
+function renderMissingRequirementsPanel() {
+    let container = document.getElementById('missing-req-panel');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'missing-req-panel';
+        const slimBar = document.getElementById('slim-bar-status');
+        if (slimBar) slimBar.insertAdjacentElement('afterend', container);
+    }
+
+    if (!activeMissingStd || appState.navigate !== 'sec-processes') {
+        container.innerHTML = '';
+        container.classList.add('hidden');
+        return;
+    }
+
+    const std = activeMissingStd;
+    const stdData = nm_NORM_DATA[std] || {};
+
+    // 1. Calculate color status for the panel container
+    const conflicts = getCrossModeConflicts();
+    const conflictStds = new Set(conflicts.map(c => c.std));
+    const { total, covered } = calculateStandardCoverage(std);
+    let stateClass = 'status-gray';
+    if (conflictStds.has(std)) stateClass = 'status-red';
+    else if (covered === total && total > 0) stateClass = 'status-green';
+    else if (covered > 0) stateClass = 'status-orange';
+
+    // 2. Smart Collapse Algorithm (Same as before)
+    function getMissingForNode(code) {
+        const node = stdData[code];
+        if (!node) return [];
+        const children = (node.children || []).filter(c => stdData[c]);
+
+        if (children.length === 0) {
+            return (!coveredStd[std] || !coveredStd[std].has(code)) ? [code] : [];
+        }
+
+        let allChildrenMissing = true;
+        let missingParts = [];
+
+        for (const child of children) {
+            const childMissing = getMissingForNode(child);
+            if (childMissing.length === 0) {
+                allChildrenMissing = false;
+            } else if (childMissing.length === 1 && childMissing[0] === child) {
+                missingParts.push(child);
+            } else {
+                allChildrenMissing = false;
+                missingParts.push(...childMissing);
+            }
+        }
+
+        if (allChildrenMissing) return [code];
+        return missingParts;
+    }
+
+    const topLevelRoots = Object.keys(stdData).filter(k => !stdData[k].parent);
+    const missingClauses = topLevelRoots.flatMap(root => getMissingForNode(root));
+
+    // The 'X' Button Component
+    const closeBtnHtml = `<button class="missing-panel-close" onclick="closeMissingPanel(event)" title="Cerrar panel">&times;</button>`;
+
+    // 3. Render Empty/Complete State
+    if (missingClauses.length === 0) {
+        container.className = `missing-req-panel ${stateClass}`;
+        container.innerHTML = `
+            ${closeBtnHtml}
+            <div class="na-empty-state" style="background: transparent; border: none; padding: 10px; min-height: auto;">
+                <strong style="font-size: 1.1rem; color: inherit;">${std}</strong><br>
+                Todas las cláusulas han sido asignadas. ¡Excelente trabajo!
+            </div>`;
+        container.classList.remove('hidden');
+        return;
+    }
+
+    // 4. Render Grouped Missing Items (Grid Layout)
+    const grouped = {};
+    missingClauses.forEach(clause => {
+        const ancestors = stdData[clause].ancestors || [];
+        const chapter = ancestors.length > 0 ? ancestors[ancestors.length - 1] : clause;
+        if (!grouped[chapter]) grouped[chapter] = [];
+        grouped[chapter].push(clause);
+    });
+
+    const sortedChapters = Object.keys(grouped).sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
+
+    let html = `
+        ${closeBtnHtml}
+        <div class="missing-panel-header">
+            <h4 style="margin: 0; color: inherit;">Faltantes: ${std}</h4>
+        </div>
+        <div class="missing-panel-grid">
+    `;
+
+    sortedChapters.forEach(chap => {
+        const clauses = grouped[chap].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        html += `
+            <div class="na-chapter-group compact">
+                <div class="na-chapter-title" style="color: inherit;">Capítulo ${chap}</div>
+                <div class="na-clause-list compact-list">
+                    ${clauses.map(c => `<div class="na-clause-chip compact-chip">${c}</div>`).join('')}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `</div>`;
+    
+    // Apply the status color class directly to the container so it matches the tab
+    container.className = `missing-req-panel ${stateClass}`;
+    container.innerHTML = html;
+    container.classList.remove('hidden');
 }
 
 /**
@@ -1972,75 +2110,6 @@ function calculateStandardCoverage(std) {
 }
 
 /* --- FASE 3.D: REQUISITOS FALTANTES (VISTA RESUMIDA) --- */
-
-function renderMissingRequirements() {
-    const container = document.getElementById('missing-requirements-summary');
-    if (!container) return;
-
-    if (appState.Standards.size === 0) {
-        container.classList.add('hidden');
-        return;
-    }
-
-    let html = '';
-    let hasMissing = false;
-
-    appState.Standards.forEach(std => {
-        const stdData = nm_NORM_DATA[std] || {};
-        let allStdClauses = Object.keys(stdData).reverse();
-        const missingClauses = new Set();
-
-        allStdClauses.forEach(clause => {
-            let childCovered = false;
-            (stdData[clause].children || []).forEach(child => {
-                if (coveredStd[std] && coveredStd[std].has(child)) {
-                    childCovered = true;
-                }
-            });
-            if (coveredStd[std] && !coveredStd[std].has(clause) && !childCovered) {
-                missingClauses.add(clause);
-            }
-        });
-
-        if (missingClauses.size > 0) {
-            hasMissing = true;
-            const rolledUpMissing = [];
-            missingClauses.forEach(clause => {
-                const parent = stdData[clause].parent;
-                if (!parent || !missingClauses.has(parent)) {
-                    rolledUpMissing.push(clause);
-                }
-            });
-            rolledUpMissing.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-            
-            html += `
-                <div class="missing-std-block">
-                    <span class="missing-std-title">${std}:</span>
-                    <span class="missing-std-clauses">${rolledUpMissing.join(', ')}</span>
-                </div>
-            `;
-        }
-    });
-
-    if (hasMissing) {
-        const toggleIcon = isGapAnalysisExpanded ? '▼' : '▶';
-        const contentStyle = isGapAnalysisExpanded ? '' : 'display: none;';
-        
-        container.innerHTML = `
-            <div class="missing-title" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleGapAnalysis()">
-                <span>Requisitos Pendientes por Asignar</span>
-                <span style="font-size: 0.8rem; background: #ffe8cc; padding: 2px 8px; border-radius: 10px; color: #d9534f;">${toggleIcon}</span>
-            </div>
-            <div style="${contentStyle} margin-top: 10px;">
-                ${html}
-            </div>
-        `;
-        container.classList.remove('hidden');
-    } else {
-        container.classList.add('hidden');
-        container.innerHTML = '';
-    }
-}
 
 function expandStoredClausesForStandard(std, storedReqs) {
     const stdData = nm_NORM_DATA[std] || {};
@@ -2314,14 +2383,6 @@ function renderExportStatus() {
  * FASE 7: RESPONSIVE STATE LOGIC
  * =================================================================================
  */
-
-// Global state to track Gap Analysis visibility. Defaults to collapsed on mobile.
-let isGapAnalysisExpanded = window.innerWidth > 600; 
-
-function toggleGapAnalysis() {
-    isGapAnalysisExpanded = !isGapAnalysisExpanded;
-    renderMissingRequirements();
-}
 
 /**
  * =================================================================================
